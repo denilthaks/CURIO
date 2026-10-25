@@ -1,0 +1,281 @@
+{
+  "schemaVersion": 1,
+  "id": "broken-tally",
+  "number": 3,
+  "title": "The Broken Tally",
+  "completionTitle": "The tally runs again",
+  "region": "viking-workshop",
+  "destination": "viking-workshop",
+  "subject": "Python",
+  "estimatedMinutes": "6–10",
+  "intro": "Sigrun's shield-order program crashes before it prints a single number. Read the error, repair the code and get the workshop's totals right.",
+  "objectives": [
+    {
+      "id": "read-errors",
+      "label": "Read a Python error message to find the problem"
+    },
+    {
+      "id": "fix-types",
+      "label": "Fix a type error by converting a number to text"
+    },
+    {
+      "id": "write-expressions",
+      "label": "Write expressions that calculate from variables"
+    },
+    {
+      "id": "predict-output",
+      "label": "Predict what a line of Python prints"
+    }
+  ],
+  "characters": {
+    "sigrun": {
+      "name": "Sigrun",
+      "role": "Master shipwright",
+      "initial": "S"
+    }
+  },
+  "evidence": [],
+  "xp": {
+    "firstTryBonus": 5,
+    "completion": 25
+  },
+  "badge": {
+    "id": "code-mender",
+    "name": "Code Mender",
+    "icon": "🛠️",
+    "description": "Read a real error message and repaired a Python program."
+  },
+  "takeaway": "Error messages are clues, not insults: the last line names the problem. Calculate from variables instead of typing answers in, and convert numbers with str() before joining them to text.",
+  "scenes": [
+    {
+      "id": "arrive",
+      "type": "dialogue",
+      "title": "The workshop",
+      "speaker": "sigrun",
+      "lines": [
+        "Ah, a Pathfinder! Mind the sawdust.",
+        "I wrote a little Python program to count this week's shield orders. Every time I run it, it shouts at me and stops.",
+        "Can you make sense of it? I'm better with timber than with text."
+      ],
+      "action": "Look at the program"
+    },
+    {
+      "id": "read-error",
+      "type": "choice",
+      "title": "Read the error",
+      "speaker": "sigrun",
+      "context": "Here's the program and the message it shows.",
+      "code": "orders = [12, 7, 9, 4]\ntotal = sum(orders)\nprint(\"Total shields: \" + total)\n\nTraceback (most recent call last):\n  File \"tally.py\", line 3\nTypeError: can only concatenate str (not \"int\") to str",
+      "prompt": "What is the error telling you?",
+      "options": [
+        {
+          "id": "join",
+          "text": "Line 3 tries to join text and a number with +, and Python won't do that automatically",
+          "feedback": "Exactly. \"Total shields: \" is text (str); total is a whole number (int). + can join text to text, not text to a number."
+        },
+        {
+          "id": "sum",
+          "text": "sum() can't add up a list",
+          "feedback": "sum() worked fine on line 2. The error points at line 3."
+        },
+        {
+          "id": "spelling",
+          "text": "The variable orders is spelled wrong",
+          "feedback": "A misspelling gives a NameError. This is a TypeError, about mixing kinds of value."
+        },
+        {
+          "id": "list",
+          "text": "The list needs more numbers",
+          "feedback": "The list is fine. The problem is what happens when the total is printed."
+        }
+      ],
+      "correct": "join",
+      "hints": [
+        "Start with the last line of the error. It names the kind of problem and gives details.",
+        "\"str\" means text and \"int\" means a whole number. Which line mixes them?"
+      ],
+      "explanation": "Python errors end with the type of error and a description. TypeError means two kinds of value were combined in a way Python doesn't allow, here text (str) and a whole number (int).",
+      "skills": [
+        "read-errors"
+      ],
+      "xp": 10
+    },
+    {
+      "id": "fix-print",
+      "type": "python",
+      "title": "Repair the print",
+      "speaker": "sigrun",
+      "context": "Now fix line 3 so it prints the total.",
+      "prompt": "Replace the blank with an expression so the program prints: Total shields: 32",
+      "code": [
+        "orders = [12, 7, 9, 4]",
+        "total = sum(orders)",
+        "print(___)"
+      ],
+      "variables": {
+        "orders": [
+          12,
+          7,
+          9,
+          4
+        ],
+        "total": 32
+      },
+      "starter": "\"Total shields: \" + total",
+      "solution": "\"Total shields: \" + str(total)",
+      "expected": {
+        "output": "Total shields: 32"
+      },
+      "requireNames": [
+        "total"
+      ],
+      "forbidPattern": "32",
+      "successFeedback": "The program prints Total shields: 32.",
+      "hints": [
+        "Turn the number into text before joining it.",
+        "str(total) converts 32 into the text \"32\"."
+      ],
+      "explanation": "str() converts a value to text, so it can be joined to other text with +. Using the variable, not typing 32, means the program stays correct when orders change.",
+      "skills": [
+        "fix-types"
+      ],
+      "xp": 15
+    },
+    {
+      "id": "average",
+      "type": "python",
+      "title": "The weekly average",
+      "speaker": "sigrun",
+      "context": "Next, I need the average number of shields ordered per week.",
+      "prompt": "Write an expression for the average of orders. The program prints the result.",
+      "code": [
+        "orders = [12, 7, 9, 4]",
+        "average = ___",
+        "print(average)"
+      ],
+      "variables": {
+        "orders": [
+          12,
+          7,
+          9,
+          4
+        ]
+      },
+      "starter": "",
+      "solution": "sum(orders) / len(orders)",
+      "expected": {
+        "value": 8
+      },
+      "requireNames": [
+        "orders"
+      ],
+      "successFeedback": "The program prints 8.0: 32 shields over 4 weeks.",
+      "hints": [
+        "An average is the total divided by how many values there are.",
+        "sum(orders) gives the total and len(orders) gives how many values there are."
+      ],
+      "explanation": "sum(orders) / len(orders) works for any list. Note that / always gives a decimal in Python, so the program prints 8.0 rather than 8.",
+      "skills": [
+        "write-expressions"
+      ],
+      "xp": 15
+    },
+    {
+      "id": "revenue",
+      "type": "python",
+      "title": "What the week earned",
+      "speaker": "sigrun",
+      "context": "Each shield sells for the amount stored in price.",
+      "prompt": "Write an expression for this week's revenue: the total number of shields times the price.",
+      "code": [
+        "orders = [12, 7, 9, 4]",
+        "total = sum(orders)",
+        "price = 15",
+        "revenue = ___",
+        "print(revenue)"
+      ],
+      "variables": {
+        "orders": [
+          12,
+          7,
+          9,
+          4
+        ],
+        "total": 32,
+        "price": 15
+      },
+      "starter": "",
+      "solution": "total * price",
+      "expected": {
+        "value": 480
+      },
+      "requireNames": [
+        "price"
+      ],
+      "forbidPattern": "480",
+      "successFeedback": "480 coins of shields this week.",
+      "hints": [
+        "Multiplication in Python uses *.",
+        "You already have total and price. Multiply them."
+      ],
+      "explanation": "Expressions combine variables with operators: total * price. If the price changes next week, the program still gives the right answer.",
+      "skills": [
+        "write-expressions"
+      ],
+      "xp": 15
+    },
+    {
+      "id": "predict",
+      "type": "choice",
+      "title": "Predict the output",
+      "speaker": "sigrun",
+      "context": "Before running this line, predict what it prints.",
+      "code": "orders = [12, 7, 9, 4]\nprint(round(sum(orders) / 3, 1))",
+      "prompt": "What does this print?",
+      "options": [
+        {
+          "id": "10.7",
+          "text": "10.7",
+          "feedback": "Yes: 32 / 3 is 10.666…, and round(…, 1) keeps one decimal place, rounding up to 10.7."
+        },
+        {
+          "id": "10.6",
+          "text": "10.6",
+          "feedback": "Close, but round() rounds to the nearest value. 10.666… is nearer 10.7 than 10.6."
+        },
+        {
+          "id": "11",
+          "text": "11",
+          "feedback": "That would be round(…) with no decimal places. The 1 asks for one decimal place."
+        },
+        {
+          "id": "8",
+          "text": "8.0",
+          "feedback": "That's the average over 4 weeks. This line divides by 3."
+        }
+      ],
+      "correct": "10.7",
+      "hints": [
+        "Work from the inside out: sum(orders) first, then / 3, then round.",
+        "32 / 3 = 10.666… Now keep one decimal place."
+      ],
+      "explanation": "Reading code inside-out, like Python does, lets you predict results and spot mistakes before running anything.",
+      "skills": [
+        "predict-output"
+      ],
+      "xp": 10
+    },
+    {
+      "id": "ending",
+      "type": "ending",
+      "title": "The tally runs again",
+      "speaker": "sigrun",
+      "lines": [
+        "It runs! Totals, averages, revenue, and not a single shout.",
+        "You didn't guess. You read what the error said and fixed exactly that.",
+        "Take this knowledge to the Great Hall one day. They love a good number up there."
+      ],
+      "action": "See what you learned"
+    }
+  ]
+}

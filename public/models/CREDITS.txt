@@ -1,0 +1,9 @@
+island-high.glb and island-low.glb are based on "Viking Island - Minecraft"
+(https://sketchfab.com/3d-models/viking-island-minecraft-fd76e3824b7647d98be20d3e2160e018)
+by cubical.xyz (https://sketchfab.com/cubical), licensed under CC-BY-4.0
+(http://creativecommons.org/licenses/by/4.0/).
+
+Changes: merged into chunks, baked to flat per-face colours (the original
+texture atlas is not included), water and seabed removed, simplified,
+quantized and meshopt-compressed. See tools/optimize-island.mjs.
+These two files are licensed CC-BY-4.0, not under the project's MIT licence.

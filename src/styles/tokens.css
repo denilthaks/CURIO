@@ -1,0 +1,66 @@
+/* Design tokens. Colour pairs were chosen for at least WCAG AA contrast. */
+:root {
+  /* World (dark) surfaces */
+  --night-900: #0b1626;
+  --night-800: #0f2036;
+  --night-700: #162c48;
+  --night-600: #21406a;
+  --mist: #c9d6e8;          /* body text on night */
+  --mist-strong: #eef3fa;   /* headings on night */
+  --mist-muted: #9fb2cc;
+
+  /* Reading (parchment) surfaces */
+  --parchment: #f7f0e1;
+  --parchment-deep: #ede2c9;
+  --parchment-edge: #d9c8a4;
+  --ink: #2a2118;
+  --ink-muted: #5c4e3d;
+
+  /* Accents */
+  --teal: #0f766e;          /* primary actions: white text 5.4:1 */
+  --teal-strong: #0b5e57;
+  --teal-bright: #2dd4bf;   /* highlights on night */
+  --amber: #f2b134;         /* highlights on night */
+  --amber-deep: #8a5a00;    /* text on parchment */
+  --rose: #b42318;
+  --rose-soft: #fde8e6;
+  --green: #166534;
+  --green-soft: #e3f4e8;
+  --gold-soft: #fff4d6;
+
+  /* Type */
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-story: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  --step--1: 0.875rem;
+  --step-0: 1rem;
+  --step-1: 1.2rem;
+  --step-2: 1.5rem;
+  --step-3: clamp(1.75rem, 1.4rem + 1.6vw, 2.4rem);
+  --step-4: clamp(2.4rem, 1.8rem + 3vw, 3.75rem);
+
+  /* Space & shape */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4.5rem;
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  --shadow-soft: 0 4px 14px rgba(0, 0, 0, 0.18);
+  --focus: 0 0 0 3px var(--night-900), 0 0 0 6px var(--amber);
+  --tap: 48px;              /* minimum target size */
+  --content: 72rem;
+  --narrow: 44rem;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur: 220ms;
+}
+
+:root[data-text-size="large"] {
+  font-size: 118.75%;
+}

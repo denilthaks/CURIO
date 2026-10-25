@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "destinations": [
+    {
+      "id": "signal-woods",
+      "name": "The Signal Woods",
+      "theme": "AI literacy and SQL",
+      "icon": "🌲",
+      "quests": ["missing-signal", "the-ledger"],
+      "unlockedBy": [],
+      "position": [-12, 172],
+      "landmark": "The forest hamlet with the round signal tower on the island's south shore."
+    },
+    {
+      "id": "viking-workshop",
+      "name": "The Viking Workshop",
+      "theme": "Python",
+      "icon": "🛠️",
+      "quests": ["broken-tally"],
+      "unlockedBy": ["missing-signal"],
+      "position": [-68, -22],
+      "landmark": "The timber workshops west of the village square."
+    },
+    {
+      "id": "trading-market",
+      "name": "The Trading Market",
+      "theme": "Excel and spreadsheets",
+      "icon": "⚖️",
+      "quests": ["market-ledger"],
+      "unlockedBy": ["missing-signal"],
+      "position": [5, -75],
+      "landmark": "The harbour market beside the longship docks."
+    },
+    {
+      "id": "great-hall",
+      "name": "The Great Hall",
+      "theme": "Business analytics",
+      "icon": "🏛️",
+      "quests": ["great-hall-dashboard"],
+      "unlockedBy": ["market-ledger"],
+      "position": [141, 14],
+      "landmark": "The Jarl's longhouse on the eastern hillside."
+    },
+    {
+      "id": "web-frontier",
+      "name": "The Web Frontier",
+      "theme": "Digital tools and internet skills",
+      "icon": "🧭",
+      "quests": [],
+      "unlockedBy": "planned",
+      "position": [-9, -204],
+      "landmark": "The lookout tower at the end of the northern pier.",
+      "teaser": "Build a simple interactive information page."
+    }
+  ]
+}

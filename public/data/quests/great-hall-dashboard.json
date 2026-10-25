@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "id": "great-hall-dashboard",
+  "number": 5,
+  "title": "The Jarl's Dashboard",
+  "completionTitle": "The dashboard is ready",
+  "region": "great-hall",
+  "destination": "great-hall",
+  "subject": "Business analytics",
+  "estimatedMinutes": "5–8",
+  "intro": "The Jarl wants one clear view of how the island's trade is doing. Sort the measures into a dashboard and explain what they mean together.",
+  "objectives": [
+    { "id": "define-kpi", "label": "Explain what makes a measure a KPI" },
+    { "id": "categorise-kpis", "label": "Group KPIs into revenue, profitability and customer experience" },
+    { "id": "interpret-tradeoffs", "label": "Interpret KPIs together, not one at a time" },
+    { "id": "choose-visual", "label": "Choose a suitable chart for a KPI" }
+  ],
+  "characters": {
+    "astrid": { "name": "Astrid", "role": "Steward of the Great Hall", "initial": "A" }
+  },
+  "evidence": [],
+  "xp": { "firstTryBonus": 5, "completion": 25 },
+  "badge": { "id": "hall-analyst", "name": "Hall Analyst", "icon": "🏛️", "description": "Organised KPIs into a dashboard and read them together." },
+  "takeaway": "A KPI is a measure tied to a goal and tracked over time. Group KPIs by the question they answer, and read them together: growing sales with a shrinking margin tells a different story from either number alone.",
+  "scenes": [
+    {
+      "id": "arrive",
+      "type": "dialogue",
+      "title": "The Great Hall",
+      "speaker": "astrid",
+      "lines": [
+        "Welcome to the Great Hall, Pathfinder. The Jarl is drowning in numbers.",
+        "Every trader sends a different report. He wants one dashboard: a few key measures, clearly grouped.",
+        "Help me build it, and help me explain what it says."
+      ],
+      "action": "Begin"
+    },
+    {
+      "id": "what-kpi",
+      "type": "choice",
+      "title": "What is a KPI?",
+      "speaker": "astrid",
+      "context": "KPI stands for Key Performance Indicator.",
+      "prompt": "Which description best fits a KPI?",
+      "options": [
+        { "id": "goal", "text": "A measure linked to a goal, tracked over time to show progress", "feedback": "Yes. \"Key\" means it matters to a goal; \"indicator\" means it shows how things are going." },
+        { "id": "any", "text": "Any number the business records", "feedback": "Businesses record thousands of numbers. A KPI is one of the few that shows progress towards a goal." },
+        { "id": "biggest", "text": "The biggest number on the report", "feedback": "Size doesn't make a number important. A small percentage can matter more than a large total." },
+        { "id": "money", "text": "A measure of money only", "feedback": "Many KPIs aren't money: satisfaction scores and delivery times are KPIs too." }
+      ],
+      "correct": "goal",
+      "hints": [
+        "Think about the word \"key\". Key to what?",
+        "A good KPI tells you whether you're getting closer to something you want."
+      ],
+      "explanation": "KPIs are the handful of measures that show whether you're meeting your goals. Everything else is supporting detail.",
+      "skills": ["define-kpi"],
+      "xp": 10
+    },
+    {
+      "id": "sort-kpis",
+      "type": "kpi",
+      "title": "Build the dashboard",
+      "speaker": "astrid",
+      "context": "Here are nine measures from the traders' reports.",
+      "prompt": "Place each KPI card into the dashboard section that it helps answer.",
+      "categories": [
+        { "id": "revenue", "label": "Revenue & growth", "description": "How much are we selling, and is it growing?" },
+        { "id": "profitability", "label": "Profitability", "description": "Do we keep money after costs?" },
+        { "id": "customer", "label": "Customer experience", "description": "Are customers happy and coming back?" }
+      ],
+      "cards": [
+        { "id": "sales", "label": "Total sales this month", "detail": "12,400 coins", "category": "revenue", "feedback": "Total sales measures money coming in: revenue." },
+        { "id": "growth", "label": "Sales growth vs last month", "detail": "+8%", "category": "revenue", "feedback": "Growth compares revenue between periods, so it belongs with revenue." },
+        { "id": "aov", "label": "Average order value", "detail": "31 coins", "category": "revenue", "feedback": "Average order value is revenue divided by orders, a revenue measure." },
+        { "id": "margin", "label": "Gross profit margin", "detail": "42%", "category": "profitability", "feedback": "Margin is the share of each sale kept after the cost of goods: profitability." },
+        { "id": "cost", "label": "Cost per order", "detail": "18 coins", "category": "profitability", "feedback": "Costs drive profitability: what you keep depends on what you spend." },
+        { "id": "profit", "label": "Net profit", "detail": "2,900 coins", "category": "profitability", "feedback": "Net profit is money left after all costs, the core profitability measure." },
+        { "id": "csat", "label": "Customer satisfaction score", "detail": "4.6 / 5", "category": "customer", "feedback": "Satisfaction comes from customers' own ratings, so it measures customer experience." },
+        { "id": "repeat", "label": "Repeat-customer rate", "detail": "37%", "category": "customer", "feedback": "Customers returning is a sign of a good experience." },
+        { "id": "delivery", "label": "Average delivery time", "detail": "2.1 days", "category": "customer", "feedback": "Delivery speed is something customers feel directly: customer experience." }
+      ],
+      "successFeedback": "Three clear sections, three KPIs each.",
+      "hints": [
+        "Ask of each card: is it about money in, money kept, or how customers feel?",
+        "Margin, costs and profit are all about what's left after spending."
+      ],
+      "explanation": "Grouping KPIs by the question they answer makes a dashboard readable at a glance: are we selling, are we keeping money, are customers happy?",
+      "skills": ["categorise-kpis"],
+      "xp": 20
+    },
+    {
+      "id": "tradeoff",
+      "type": "choice",
+      "title": "Reading KPIs together",
+      "speaker": "astrid",
+      "context": "This month, sales grew 8%, but gross profit margin fell from 45% to 42%.",
+      "prompt": "What should the dashboard tell the Jarl?",
+      "options": [
+        { "id": "both", "text": "We're selling more, but keeping less of each sale. Look at what has pushed costs up", "feedback": "Yes. Read together, the two KPIs point to a cost problem hidden behind good sales news." },
+        { "id": "great", "text": "Sales are up 8%, so everything is going well", "feedback": "Growth alone hides the falling margin. Each sale now earns less." },
+        { "id": "bad", "text": "Margin is down, so the business is failing", "feedback": "That's too strong. Sales are growing, and 42% may still be healthy. It's a warning to investigate, not a verdict." },
+        { "id": "ignore", "text": "Report only the good number to keep the Jarl happy", "feedback": "A dashboard that hides bad news can't support good decisions." }
+      ],
+      "correct": "both",
+      "hints": [
+        "What does each number say on its own? What do they say together?",
+        "If you sell more but keep a smaller share, what has probably changed?"
+      ],
+      "explanation": "KPIs make the most sense side by side. Growth with a falling margin often means costs or discounts are rising, which is worth investigating before it erodes profit.",
+      "skills": ["interpret-tradeoffs"],
+      "xp": 15
+    },
+    {
+      "id": "chart",
+      "type": "choice",
+      "title": "Choosing a chart",
+      "speaker": "astrid",
+      "context": "The Jarl wants to see how monthly sales changed over the past year.",
+      "prompt": "Which chart shows that best?",
+      "options": [
+        { "id": "line", "text": "A line chart with months along the bottom", "feedback": "Yes. Lines are made for change over time: rises, dips and trends are visible at a glance." },
+        { "id": "pie", "text": "A pie chart with one slice per month", "feedback": "Pie charts show parts of a whole. Twelve similar slices make trends almost impossible to see." },
+        { "id": "table", "text": "A table of twelve numbers", "feedback": "A table is precise, but readers have to work to spot the trend. A chart shows it immediately." },
+        { "id": "single", "text": "One big number showing the yearly total", "feedback": "A total hides how sales changed month to month, which is what the Jarl asked." }
+      ],
+      "correct": "line",
+      "hints": [
+        "The question is about change over time.",
+        "Which chart joins points in order from left to right?"
+      ],
+      "explanation": "Match the chart to the question: line charts for trends over time, bar charts for comparing categories, and big single numbers for headline KPIs.",
+      "skills": ["choose-visual"],
+      "xp": 10
+    },
+    {
+      "id": "ending",
+      "type": "ending",
+      "title": "The dashboard is ready",
+      "speaker": "astrid",
+      "lines": [
+        "Nine measures, three clear questions, and an honest story about what they mean together.",
+        "The Jarl will finally see the island at a glance, the good news and the warnings.",
+        "You've walked every trail on this island, Pathfinder. The Atlas grows because of you."
+      ],
+      "action": "See what you learned"
+    }
+  ]
+}
