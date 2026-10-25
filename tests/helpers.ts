@@ -6,7 +6,7 @@ export function readJson<T>(relativePath: string): T {
   return JSON.parse(readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8')) as T;
 }
 
-export const QUEST_IDS = ['missing-signal', 'the-ledger', 'broken-tally', 'market-ledger', 'great-hall-dashboard'];
+export const QUEST_IDS = ['missing-signal', 'the-ledger', 'broken-tally', 'market-ledger', 'great-hall-dashboard', 'star-chart'];
 
 export function loadQuest(id = 'missing-signal'): Quest {
   return readJson<Quest>(`public/data/quests/${id}.json`);

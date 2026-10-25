@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useGame } from '../../app/game';
 import { navigate } from '../../app/router';
 import { announce, focusElement } from '../../app/a11y';
-import { destinationStatus, questStatus, unlockRequirement, nextQuestAt, type DestinationStatus, type QuestStatus } from '../../engine/progression';
+import { destinationStatus, moduleForQuest, questRequirement, questStatus, unlockRequirement, nextQuestAt, type DestinationStatus, type QuestStatus } from '../../engine/progression';
 import { questRecord, withReplay } from '../../engine/progress-store';
 import { levelFor, restoreRun } from '../../engine/game-engine';
 import { totalXp, totalStars } from '../../engine/progress-store';
@@ -30,7 +30,7 @@ interface Props {
 }
 
 export function MapScreen({ selected, renderer, stageStatus, webgl }: Props) {
-  const { world, quests, progress, update } = useGame();
+  const { world, quests, progress, update, curriculum } = useGame();
   const detailRef = useRef<HTMLDivElement>(null);
   const xp = totalXp(progress);
   const level = levelFor(xp);
@@ -102,6 +102,9 @@ export function MapScreen({ selected, renderer, stageStatus, webgl }: Props) {
                           <StatusChip status={status} />
                         </div>
                         <p className="quest-subject"><strong>{quest.subject}</strong> · about {quest.estimatedMinutes} min</p>
+                        {moduleForQuest(curriculum.modules, id) && (
+                          <p className="module-tag">Module {moduleForQuest(curriculum.modules, id)!.number}: {moduleForQuest(curriculum.modules, id)!.title} · {moduleForQuest(curriculum.modules, id)!.level}</p>
+                        )}
                         <p>{quest.intro}</p>
                         {record.completed && <p className="meta">Best: {record.bestXp} XP · <Stars count={record.bestStars} /></p>}
                         <div className="cta-row">
@@ -113,7 +116,7 @@ export function MapScreen({ selected, renderer, stageStatus, webgl }: Props) {
                               <button type="button" className="btn btn-ghost" onClick={() => { update((p) => withReplay(p, id)); navigate(`/quest/${id}`); }}>Replay</button>
                             </>
                           )}
-                          {status === 'locked' && <p className="hint">Finish the quest before this one to unlock it.</p>}
+                          {status === 'locked' && <p className="hint"><span aria-hidden="true">🔒</span> {questRequirement(quest, destination, quests, progress)}</p>}
                         </div>
                       </li>
                     );

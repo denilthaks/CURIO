@@ -4,13 +4,14 @@
 
 import type {
   Answer, AssembleScene, ChallengeResult, ChallengeScene, ChoiceScene, ExcelScene, Issue,
-  KpiScene, Outcome, PythonScene, Quest, Run, Scene, SqlScene,
+  KpiScene, Outcome, PythonScene, Quest, Run, Scene, SchemaScene, SqlScene,
 } from './types';
 import { evaluatePython, str as pyStr, toJs } from './python-lite';
 import { evaluateFormula, fillFormula, makeSheet, splitRef } from './excel-lite';
 import { compareRows, formatTable } from './sql-check';
+import { cleanModel, solutionModel, validateModel } from './schema-lab';
 
-export const CHALLENGE_TYPES = new Set(['choice', 'assemble', 'sql', 'python', 'excel', 'kpi']);
+export const CHALLENGE_TYPES = new Set(['choice', 'assemble', 'sql', 'python', 'excel', 'kpi', 'schema']);
 export const REVEAL_AFTER_ATTEMPTS = 3;
 
 export const LEVELS = [
@@ -27,7 +28,12 @@ export function isChallenge(scene: Scene | undefined): scene is ChallengeScene {
 }
 
 export function createRun(quest: Quest): Run {
-  return { questId: quest.id, sceneIndex: 0, inspected: [], results: {}, completed: false };
+  return { questId: quest.id, sceneIndex: 0, sceneId: quest.scenes[0]?.id, inspected: [], results: {}, completed: false };
+}
+
+/** Stable key for a lesson, used to remember which lessons a player has read. */
+export function lessonKey(quest: Quest, scene: Scene): string {
+  return `${quest.id}/${scene.id}`;
 }
 
 // Rebuild a run from saved (untrusted) data, discarding anything that no
@@ -36,7 +42,9 @@ export function restoreRun(quest: Quest, saved: unknown): Run {
   const s = saved as Partial<Run> | null;
   if (!s || typeof s !== 'object' || s.questId !== quest.id) return createRun(quest);
   const last = quest.scenes.length - 1;
-  const index = Number.isInteger(s.sceneIndex) ? Math.min(Math.max(s.sceneIndex!, 0), last) : 0;
+  // Prefer the stable step id: indices shift when content (e.g. lessons) is added.
+  const byId = typeof s.sceneId === 'string' ? quest.scenes.findIndex((sc) => sc.id === s.sceneId) : -1;
+  const index = byId >= 0 ? byId : Number.isInteger(s.sceneIndex) ? Math.min(Math.max(s.sceneIndex!, 0), last) : 0;
   const evidenceIds = new Set(quest.evidence.map((e) => e.id));
   const inspected = Array.isArray(s.inspected)
     ? [...new Set(s.inspected.filter((id): id is string => typeof id === 'string' && evidenceIds.has(id)))]
@@ -57,6 +65,7 @@ export function restoreRun(quest: Quest, saved: unknown): Run {
       break;
     }
   }
+  run.sceneId = quest.scenes[run.sceneIndex].id;
   run.completed = Boolean(s.completed) && run.sceneIndex === last;
   return run;
 }
@@ -89,7 +98,8 @@ export function inspectEvidence(quest: Quest, run: Run, evidenceId: string): Run
 export function advance(quest: Quest, run: Run): Run {
   if (!canAdvance(quest, run)) return run;
   if (currentScene(quest, run).type === 'ending') return { ...run, completed: true };
-  return { ...run, sceneIndex: run.sceneIndex + 1 };
+  const sceneIndex = run.sceneIndex + 1;
+  return { ...run, sceneIndex, sceneId: quest.scenes[sceneIndex].id };
 }
 
 // ---- Evaluation per challenge type ----
@@ -247,6 +257,24 @@ function evaluateKpi(scene: KpiScene, answer: Answer): Evaluation {
   };
 }
 
+function evaluateSchema(scene: SchemaScene, answer: Answer): Evaluation {
+  const raw = answer && typeof answer === 'object' && 'model' in answer ? answer.model : null;
+  const model = cleanModel(scene, raw);
+  if (!model.placed.length) return { valid: false, message: 'Add the tables you need to the workspace first.' };
+  const result = validateModel(scene, model);
+  const errors = result.issues.filter((i) => i.severity === 'error');
+  const warnings = result.issues.filter((i) => i.severity === 'warning');
+  if (errors.length) {
+    return {
+      valid: true, correct: false,
+      feedback: `${errors.length} ${errors.length === 1 ? 'problem' : 'problems'} found in your model.`,
+      issues: [...errors, ...warnings].map((i) => ({ id: i.id, label: i.title, text: i.text })),
+    };
+  }
+  const note = warnings.length ? ` (Note: ${warnings.map((w) => w.title).join('; ')}.)` : '';
+  return { valid: true, correct: true, feedback: (scene.successFeedback || 'Your model works.') + note, issues: [] };
+}
+
 export function evaluate(scene: Scene, answer: Answer): Evaluation {
   switch (scene.type) {
     case 'choice': return evaluateChoice(scene, answer);
@@ -255,6 +283,7 @@ export function evaluate(scene: Scene, answer: Answer): Evaluation {
     case 'python': return evaluatePythonScene(scene, answer);
     case 'excel': return evaluateExcel(scene, answer);
     case 'kpi': return evaluateKpi(scene, answer);
+    case 'schema': return evaluateSchema(scene, answer);
     default: return { valid: false, message: 'This step has no answer to check.' };
   }
 }
@@ -304,6 +333,7 @@ export function correctAnswer(scene: Scene): Answer | null {
     case 'python': return { expression: scene.solution };
     case 'excel': return { formula: scene.solution };
     case 'kpi': return { placement: Object.fromEntries(scene.cards.map((c) => [c.id, c.category])) };
+    case 'schema': return { model: solutionModel(scene) };
     default: return null;
   }
 }

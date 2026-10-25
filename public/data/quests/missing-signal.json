@@ -117,6 +117,31 @@
       "action": "I've read them all"
     },
     {
+      "id": "lesson-sources",
+      "type": "lesson",
+      "title": "Learn: sources and summaries",
+      "speaker": "mira",
+      "skills": [
+        "distinguish-source",
+        "verify-claims"
+      ],
+      "action": "Start the guided exercise",
+      "lesson": {
+        "concept": "Sources and summaries",
+        "objective": "Tell where information comes from, and check copies against the original.",
+        "plainEnglish": "An original source is where a piece of information starts: the person or organisation responsible for it. A summary, whether written by a person or by an AI, is a retelling. Retellings can drop, change or invent details, so when details matter you compare the summary with the source.",
+        "analogy": "Think of a recipe passed along by word of mouth. By the third retelling, “a teaspoon of salt” can become “a tablespoon”. The cookbook is the source; the retellings are summaries.",
+        "example": {
+          "kind": "text",
+          "code": "Train company website:  \"Last train 23:10\"            ← source\nFriend's text:          \"last train's around 11:30?\"   ← retelling\nAI answer:              \"The last train leaves at 23:40.\" ← retelling (sounds sure)",
+          "caption": "Which one would you trust to catch the last train?"
+        },
+        "whyItMatters": "AI tools write fluent, confident text even when a detail is wrong. Checking important facts against the source protects you and everyone you share them with.",
+        "commonMistake": "Treating a confident tone, or hearing the same claim twice, as proof. If two retellings come from the same mistaken copy, they are one claim, not two.",
+        "takeaway": "Find the source, compare the details, and trust the source when they disagree."
+      }
+    },
+    {
       "id": "find-source",
       "type": "choice",
       "title": "Find the source",
@@ -154,7 +179,8 @@
       "skills": [
         "distinguish-source"
       ],
-      "xp": 10
+      "xp": 10,
+      "phase": "guided"
     },
     {
       "id": "spot-conflict",
@@ -276,6 +302,29 @@
         "distinguish-source"
       ],
       "xp": 10
+    },
+    {
+      "id": "lesson-prompts",
+      "type": "lesson",
+      "title": "Learn: writing a useful prompt",
+      "speaker": "mira",
+      "skills": [
+        "prompt-context"
+      ],
+      "action": "Start the guided exercise",
+      "lesson": {
+        "concept": "Writing a useful prompt",
+        "objective": "Give an AI assistant the information and limits it needs.",
+        "plainEnglish": "A prompt is the instruction you give an AI assistant. It only knows what you tell it and what it learned in training, so a vague prompt gets a vague or invented answer. Useful prompts usually include the goal, the audience, the source material, the format, and what to do when information is missing.",
+        "analogy": "Briefing a new temp. “Sort out the bakery email” could produce anything. “Using this price list, write a three-line email to regular customers about Saturday’s hours, and don’t promise discounts” gets you what you need.",
+        "example": {
+          "kind": "text",
+          "code": "Weak:    Write about our bakery's new hours.\n\nStronger: Using the opening hours below, write a 50-word notice for\n          regular customers in a friendly tone. Don't mention prices.\n          If a day isn't listed, say \"closed\" rather than guessing.\n          [opening hours pasted here]"
+        },
+        "whyItMatters": "Clear prompts reduce invented details and save rounds of editing. A good prompt doesn’t make the output true, though. You still check it.",
+        "commonMistake": "Asking for “something exciting” or telling the assistant to “fix any mistakes” without giving it the facts. It can’t check facts it was never given.",
+        "takeaway": "Goal + audience + source + format + “don’t guess”. Then check the result."
+      }
     },
     {
       "id": "better-prompt",
@@ -432,7 +481,8 @@
       "skills": [
         "verify-claims"
       ],
-      "xp": 20
+      "xp": 20,
+      "phase": "assessment"
     },
     {
       "id": "restore",

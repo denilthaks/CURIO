@@ -2,9 +2,12 @@
 // up in tests (or as a clear error) instead of as a broken quest.
 
 import type { Quest, World } from './types';
+import type { Curriculum } from './types';
 import { evaluate, correctAnswer } from './game-engine';
+import { solutionModel, validateModel } from './schema-lab';
 
-const SCENE_TYPES = new Set(['dialogue', 'evidence', 'choice', 'assemble', 'sql', 'python', 'excel', 'kpi', 'ending']);
+const SCENE_TYPES = new Set(['dialogue', 'evidence', 'lesson', 'choice', 'assemble', 'sql', 'python', 'excel', 'kpi', 'schema', 'ending']);
+const CHALLENGES = ['choice', 'assemble', 'sql', 'python', 'excel', 'kpi', 'schema'];
 
 const isText = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
 const duplicates = (ids: string[]) => ids.filter((id, i) => ids.indexOf(id) !== i);
@@ -56,7 +59,18 @@ export function validateQuest(quest: unknown): string[] {
       (scene.evidence || []).forEach((id) => evidenceIds.includes(id) || fail(`${at} references unknown evidence "${id}".`));
     }
 
-    if (['choice', 'assemble', 'sql', 'python', 'excel', 'kpi'].includes(scene.type)) {
+    if (scene.type === 'lesson') {
+      const l = scene.lesson;
+      if (!l) { fail(`${at} has no lesson content.`); return; }
+      for (const key of ['concept', 'objective', 'plainEnglish', 'analogy', 'whyItMatters', 'commonMistake', 'takeaway'] as const) {
+        if (!isText(l[key])) fail(`${at} lesson needs ${key}.`);
+      }
+      if (l.example && !isText(l.example.code)) fail(`${at} lesson example needs code.`);
+      if (!Array.isArray(scene.skills) || !scene.skills.length) fail(`${at} lesson must name the objectives it teaches.`);
+      (scene.skills || []).forEach((id) => objectiveIds.includes(id) || fail(`${at} lesson references unknown objective "${id}".`));
+    }
+
+    if (CHALLENGES.includes(scene.type)) {
       const c = scene as Extract<typeof scene, { prompt: string }>;
       if (!isText(c.prompt)) fail(`${at} needs a prompt.`);
       if (!isText(c.explanation)) fail(`${at} needs an explanation.`);
@@ -109,6 +123,19 @@ export function validateQuest(quest: unknown): string[] {
       }
     }
 
+    if (scene.type === 'schema') {
+      const ids = (scene.tables || []).map((t) => t.id);
+      duplicates(ids).forEach((id) => fail(`${at} has duplicate table "${id}".`));
+      [...(scene.requiredTables || []), scene.factTable, ...(scene.dimensions || [])].forEach((id) => ids.includes(id) || fail(`${at} references unknown table "${id}".`));
+      (scene.tables || []).forEach((t) => {
+        if (!t.rows?.length || t.rows.some((r) => r.length !== t.columns.length)) fail(`${at} table "${t.id}" rows must match its columns.`);
+      });
+      if (scene.solution) {
+        const result = validateModel(scene, solutionModel(scene));
+        if (!result.correct) fail(`${at} solution fails the model rules: ${result.issues.filter((i) => i.severity === 'error').map((i) => i.title).join('; ')}`);
+      } else fail(`${at} needs a solution.`);
+    }
+
     if (scene.type === 'kpi') {
       const ids = (scene.categories || []).map((c) => c.id);
       if (ids.length < 2) fail(`${at} needs at least two categories.`);
@@ -142,5 +169,50 @@ export function validateWorld(world: unknown, questIds: string[] = []): string[]
       if (!d.quests?.length) errors.push(`Destination "${d.id}" is not planned but has no quests.`);
     }
   });
+  return errors;
+}
+
+/** Quest prerequisites must exist and must not form a cycle. */
+export function validateRequirements(quests: Quest[]): string[] {
+  const errors: string[] = [];
+  const ids = new Set(quests.map((q) => q.id));
+  for (const q of quests) (q.requires || []).forEach((r) => ids.has(r) || errors.push(`Quest "${q.id}" requires unknown quest "${r}".`));
+  const byId = new Map(quests.map((q) => [q.id, q]));
+  const visiting = new Set<string>();
+  const done = new Set<string>();
+  const visit = (id: string): boolean => {
+    if (done.has(id)) return true;
+    if (visiting.has(id)) return false;
+    visiting.add(id);
+    const ok = (byId.get(id)?.requires || []).every(visit);
+    visiting.delete(id);
+    done.add(id);
+    return ok;
+  };
+  for (const q of quests) if (!visit(q.id)) errors.push(`Quest prerequisites form a cycle involving "${q.id}".`);
+  return [...new Set(errors)];
+}
+
+export function validateCurriculum(curriculum: unknown, questIds: string[]): string[] {
+  const errors: string[] = [];
+  const c = curriculum as Curriculum | null;
+  const modules = c && Array.isArray(c.modules) ? c.modules : [];
+  if (!modules.length) return ['Curriculum has no modules.'];
+  const moduleIds = modules.map((m) => m.id);
+  duplicates(moduleIds).forEach((id) => errors.push(`Duplicate module id "${id}".`));
+  duplicates(modules.map((m) => String(m.number))).forEach((n) => errors.push(`Duplicate module number ${n}.`));
+  const seen = new Map<string, string>();
+  for (const m of modules) {
+    if (!isText(m.title) || !isText(m.subject) || !isText(m.summary)) errors.push(`Module "${m.id}" needs a title, subject and summary.`);
+    if (!['Beginner', 'Intermediate', 'Advanced', 'Capstone'].includes(m.level)) errors.push(`Module "${m.id}" has an unknown level.`);
+    (m.quests || []).forEach((q) => {
+      if (!questIds.includes(q)) errors.push(`Module "${m.id}" lists unknown quest "${q}".`);
+      if (seen.has(q)) errors.push(`Quest "${q}" is in modules "${seen.get(q)}" and "${m.id}".`);
+      seen.set(q, m.id);
+    });
+    (m.requires || []).forEach((r) => moduleIds.includes(r) || errors.push(`Module "${m.id}" requires unknown module "${r}".`));
+    if (!(m.quests || []).length && !(m.planned || []).length) errors.push(`Module "${m.id}" has neither quests nor planned topics.`);
+  }
+  questIds.filter((q) => !seen.has(q)).forEach((q) => errors.push(`Quest "${q}" is not in any module.`));
   return errors;
 }

@@ -2,11 +2,11 @@
 // progress. One source of truth drives the map, quests, HUD and 3D world.
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Quest, World } from '../engine/types';
+import type { Curriculum, Quest, World } from '../engine/types';
 import * as store from '../engine/progress-store';
 import type { Progress } from '../engine/progress-store';
 
-export interface Content { world: World; quests: Map<string, Quest> }
+export interface Content { world: World; quests: Map<string, Quest>; curriculum: Curriculum }
 
 export interface CompletionSummary {
   questId: string;

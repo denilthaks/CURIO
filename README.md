@@ -4,7 +4,7 @@
 
 CurioTrail is a free, open-source, story-driven 3D learning game. You become a *Pathfinder* on a Viking island, and each destination on the island teaches a practical digital skill through short quests: checking AI-generated information, querying data with SQL, repairing Python, building spreadsheet formulas and reading business KPIs.
 
-> **Status:** playable prototype. Five quests are complete from start to finish. The Web Frontier destination is shown as *planned*, and no unfinished feature is presented as working.
+> **Status:** playable prototype. Six quests are complete from start to finish, including a hands-on data-modelling lab, each with theory cards. They're organised into an eight-module learning path; modules with no content yet are clearly marked *planned*. No unfinished feature is presented as working.
 > "CurioTrail" is a working name. Trademarks and domains have not been checked.
 
 **Play:** https://denilthaks.github.io/CURIO/ (once `main` is deployed; see [Deploy](#deploy)).
@@ -20,9 +20,17 @@ CurioTrail is a free, open-source, story-driven 3D learning game. You become a *
 | 🛠️ The Viking Workshop | 03 The Broken Tally | Python | Read a real `TypeError`, fix it, write expressions, predict output |
 | ⚖️ The Trading Market (harbour) | 04 The Market Ledger | Excel | Cell addresses, `=B2*C2` with fill-down, `SUM`, `AVERAGE`, `$` references |
 | 🏛️ The Great Hall (longhouse) | 05 The Jarl's Dashboard | Business analytics | Drag KPI cards into a dashboard, interpret trade-offs, choose a chart |
+| 🏛️ The Great Hall | 06 The Star Chart (lab) | Data modelling | Build a star schema: add tables, connect keys, set cardinality and direction; the model is checked by real rules |
 | 🧭 The Web Frontier (pier tower) | Planned | Digital tools | Not playable yet |
 
-**Unlocking:** The Missing Signal opens the Workshop and the Market. The SQL quest follows it in the Signal Woods. The Market Ledger opens the Great Hall. All of this is driven by `public/data/world.json`.
+**Unlocking:** The Missing Signal opens the Workshop and the Market. The SQL quest follows it in the Signal Woods. The Market Ledger opens the Great Hall. The Star Chart also requires the SQL quest. All of this is driven by `public/data/world.json` and each quest's `requires`.
+
+**Learning cycle:** each quest moves through **Learn → Guided exercise → Practice → Check your understanding**, shown as colour-coded badges.
+- **Theory cards** teach each concept before it's practised. Each card has an objective, a plain-English explanation, an analogy, an example, why it matters, a common mistake and a takeaway, and states any simplification.
+- On a replay, a lesson opens in its short version, so experienced learners aren't made to re-read it.
+- Lessons award no XP, because XP is for demonstrated skill.
+
+**Learning path:** eight modules, from 0 Digital Foundations to 7 Analytics and Projects (see *Progress & settings*). Modules 0, 1 and 5 have playable content; modules 2, 3, 4, 6 and 7 are listed as planned, with their topics.
 
 **Scoring:**
 - Each challenge gives XP, plus a first-try bonus.
@@ -47,6 +55,7 @@ Quest data (JSON) → game rules (src/engine, pure TS) → player state (progres
   - `python-lite.ts`: a sandboxed evaluator for a subset of Python expressions, with CPython-style errors
   - `excel-lite.ts`: a formula evaluator with fill-down
   - `sql-check.ts`: compares query results
+  - `schema-lab.ts`: the modelling lab's interaction reducer and its rule-based validator (key uniqueness and foreign-key matching are computed from sample rows)
 - **`src/runtime/sql-runner.ts`** runs learners' SQL on a fresh in-memory **SQLite** database (sql.js / WebAssembly, loaded only when needed).
 - **`src/world/`** is imperative Three.js. `WorldRenderer` loads the island progressively (light version first, then detailed), places markers by raycasting onto the model, handles camera fly-to transitions, picking, orbit, zoom and keyboard controls, characters, effects, quality tiers, context loss and full disposal. Characters are original low-poly figures with procedural poses.
 - **`src/ui/`** contains the React screens:
@@ -68,11 +77,11 @@ Requires Node 22+.
 ```sh
 npm ci
 npm run dev          # http://localhost:5173 with hot reload
-npm test             # 67 unit tests (Vitest)
+npm test             # 99 unit tests (Vitest)
 npm run typecheck
 npm run build        # production build in dist/
 npm run preview      # serve the build
-npm run e2e          # 29 real-browser checks (needs Playwright + Chromium; see below)
+npm run e2e          # 34 real-browser checks (needs Playwright + Chromium; see below)
 ```
 
 `npm run e2e` serves `dist/` under `/CURIO/` (like GitHub Pages) and drives Chromium through every quest, the failure modes and the mobile layout. It writes screenshots to `docs/screenshots/` and results to `docs/test-results/e2e.json`. Install Chromium once with `npx playwright install chromium`.

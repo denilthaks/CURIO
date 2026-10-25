@@ -6,7 +6,7 @@ import type { Quest, Run } from './types';
 import { computeStars, restoreRun } from './game-engine';
 
 export const STORAGE_KEY = 'curiotrail.progress';
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 export const EMBLEMS = ['fox', 'owl', 'deer', 'badger'] as const;
 export const MAX_NAME_LENGTH = 24;
 const MAX_XP = 100000;
@@ -34,6 +34,8 @@ export interface Progress {
   player: { name: string; emblem: Emblem } | null;
   quests: Record<string, QuestRecord>;
   achievements: string[];
+  /** Lessons (theory cards) the player has read, as "questId/sceneId". */
+  lessons: string[];
   settings: Settings;
 }
 
@@ -48,7 +50,7 @@ export function defaultSettings(): Settings {
 }
 
 export function defaultProgress(): Progress {
-  return { version: SCHEMA_VERSION, player: null, quests: {}, achievements: [], settings: defaultSettings() };
+  return { version: SCHEMA_VERSION, player: null, quests: {}, achievements: [], lessons: [], settings: defaultSettings() };
 }
 
 export function emptyRecord(): QuestRecord {
@@ -105,6 +107,29 @@ function sanitizeQuestRecord(id: string, raw: unknown): QuestRecord | null {
   };
 }
 
+/**
+ * Step order of each quest in schema v2 (release 0.2). v2 saves record a run's
+ * position only as an index; v3 adds lesson steps, which shifts indices, so the
+ * migration converts each saved index into a stable step id using this table.
+ * Do not edit: it describes content that has already shipped.
+ */
+export const V2_SCENE_ORDER: Record<string, string[]> = {
+  'missing-signal': ['arrive', 'investigate', 'find-source', 'spot-conflict', 'verify-time', 'rumour', 'better-prompt', 'assemble', 'restore'],
+  'the-ledger': ['arrive', 'read-select', 'filter-north', 'group-products', 'top-product', 'interpret', 'ending'],
+  'broken-tally': ['arrive', 'read-error', 'fix-print', 'average', 'revenue', 'predict', 'ending'],
+  'market-ledger': ['arrive', 'find-cell', 'row-revenue', 'total', 'average-price', 'absolute', 'ending'],
+  'great-hall-dashboard': ['arrive', 'what-kpi', 'sort-kpis', 'tradeoff', 'chart', 'ending'],
+};
+
+function addSceneId(questId: string, run: unknown): unknown {
+  if (!run || typeof run !== 'object') return run;
+  const r = run as Record<string, unknown>;
+  if (typeof r.sceneId === 'string') return run;
+  const order = V2_SCENE_ORDER[questId];
+  const id = order && Number.isInteger(r.sceneIndex) ? order[r.sceneIndex as number] : undefined;
+  return id ? { ...r, sceneId: id } : run;
+}
+
 // Upgrade older saves to the current shape. One step per schema change.
 export function migrate(raw: unknown): Record<string, unknown> | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -115,6 +140,20 @@ export function migrate(raw: unknown): Record<string, unknown> | null {
     // v2 added star ratings (back-filled from the last finished run once quest
     // content is loaded, see reconcileStars) and the graphics setting.
     data.version = 2;
+  }
+  if (data.version === 2) {
+    // v3 added lessons (theory cards) and stable step ids on runs.
+    const quests: Record<string, unknown> = {};
+    if (data.quests && typeof data.quests === 'object' && !Array.isArray(data.quests)) {
+      for (const [id, record] of Object.entries(data.quests as Record<string, unknown>)) {
+        quests[id] = record && typeof record === 'object'
+          ? { ...(record as Record<string, unknown>), run: addSceneId(id, (record as Record<string, unknown>).run), lastRun: addSceneId(id, (record as Record<string, unknown>).lastRun) }
+          : record;
+      }
+    }
+    data.quests = quests;
+    data.lessons = [];
+    data.version = 3;
   }
   return data;
 }
@@ -133,11 +172,15 @@ export function sanitizeProgress(raw: unknown): Progress {
   const achievements = Array.isArray(data.achievements)
     ? [...new Set(data.achievements.filter((a): a is string => typeof a === 'string' && /^[a-z0-9-]{1,64}$/.test(a)))]
     : [];
+  const lessons = Array.isArray(data.lessons)
+    ? [...new Set(data.lessons.filter((l): l is string => typeof l === 'string' && /^[a-z0-9-]{1,64}\/[a-z0-9-]{1,64}$/.test(l)))].slice(0, 1000)
+    : [];
   return {
     version: SCHEMA_VERSION,
     player: sanitizePlayer(data.player),
     quests,
     achievements,
+    lessons,
     settings: sanitizeSettings(data.settings),
   };
 }
@@ -232,6 +275,12 @@ export function withCompletion(progress: Progress, run: Run, xp: number, stars: 
 export function withReplay(progress: Progress, questId: string): Progress {
   const record = questRecord(progress, questId);
   return { ...progress, quests: { ...progress.quests, [questId]: { ...record, run: null, runXp: 0 } } };
+}
+
+/** Remember that a lesson was read. Lessons award no XP: XP is for demonstrated skill. */
+export function withLessonRead(progress: Progress, key: string): Progress {
+  if (progress.lessons.includes(key) || !/^[a-z0-9-]{1,64}\/[a-z0-9-]{1,64}$/.test(key)) return progress;
+  return { ...progress, lessons: [...progress.lessons, key] };
 }
 
 export function totalXp(progress: Progress): number {

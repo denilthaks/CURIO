@@ -3,12 +3,26 @@ import { useGame } from '../../app/game';
 import { navigate } from '../../app/router';
 import { announce, focusElement } from '../../app/a11y';
 import * as engine from '../../engine/game-engine';
-import { questRecord, totalXp, withCompletion, withRun } from '../../engine/progress-store';
-import { destinationForQuest, newlyUnlocked } from '../../engine/progression';
-import type { Answer, Outcome, Run } from '../../engine/types';
+import { questRecord, totalXp, withCompletion, withLessonRead, withRun } from '../../engine/progress-store';
+import { destinationForQuest, moduleForQuest, newlyUnlocked } from '../../engine/progression';
+import type { Answer, Outcome, Run, Scene } from '../../engine/types';
 import type { Pose } from '../../world/characters';
-import { EvidenceCard, type SceneProps } from '../quest/common';
+import { EvidenceCard, Speech, type SceneProps } from '../quest/common';
 import { AssembleView, ChoiceView, DialogueView, EndingView, EvidenceView, ExcelView, KpiView, PythonView, SqlView } from '../quest/Scenes';
+import { LessonCard } from '../quest/LessonCard';
+import { SchemaLabView } from '../quest/SchemaLab';
+
+/** Where a step sits in the learning cycle, shown as a badge. */
+export function phaseOf(scene: Scene): { id: string; label: string; icon: string } {
+  if (scene.type === 'lesson') return { id: 'learn', label: 'Learn', icon: '💡' };
+  if (scene.type === 'dialogue') return { id: 'story', label: 'Story', icon: '📜' };
+  if (scene.type === 'evidence') return { id: 'story', label: 'Investigate', icon: '🔍' };
+  if (scene.type === 'ending') return { id: 'mastery', label: 'Wrap-up', icon: '🏁' };
+  const phase = engine.isChallenge(scene) ? scene.phase ?? 'practice' : 'practice';
+  if (phase === 'guided') return { id: 'guided', label: 'Guided exercise', icon: '🧩' };
+  if (phase === 'assessment') return { id: 'assessment', label: 'Check your understanding', icon: '🎯' };
+  return { id: 'practice', label: scene.type === 'schema' ? 'Lab: independent practice' : 'Practice', icon: '🛠️' };
+}
 
 interface Props {
   questId: string;
@@ -17,7 +31,7 @@ interface Props {
 
 export function QuestScreen({ questId, onPose }: Props) {
   const game = useGame();
-  const { quests, world, update, setLastCompletion } = game;
+  const { quests, world, curriculum, update, setLastCompletion } = game;
   const quest = quests.get(questId)!;
   const destination = destinationForQuest(world, questId)!;
   const [run, setRun] = useState<Run>(() => {
@@ -39,7 +53,7 @@ export function QuestScreen({ questId, onPose }: Props) {
   // Character pose in the 3D world follows the story.
   useEffect(() => {
     let pose: Pose = 'idle';
-    if (scene.type === 'dialogue') pose = 'talk';
+    if (scene.type === 'dialogue' || scene.type === 'lesson') pose = 'talk';
     else if (scene.type === 'evidence') pose = 'point';
     else if (scene.type === 'ending') pose = 'wave';
     else if (result.solved && !result.revealed) pose = 'celebrate';
@@ -88,6 +102,8 @@ export function QuestScreen({ questId, onPose }: Props) {
   };
 
   const onNext = () => {
+    // Remember lessons the player has read (no XP; it only shortens replays).
+    if (scene.type === 'lesson') update((p) => withLessonRead(p, engine.lessonKey(quest, scene)));
     const after = engine.advance(quest, run);
     if (after === run) return;
     if (!after.completed) {
@@ -121,6 +137,8 @@ export function QuestScreen({ questId, onPose }: Props) {
 
   const props: SceneProps = { quest, scene, result, outcome: v.outcome, tried: v.tried, inspected: run.inspected, onCheck, onReveal, onNext, onInspect, invalid: v.invalid };
   const { step, total } = engine.progressSummary(quest, run);
+  const phase = phaseOf(scene);
+  const module = moduleForQuest(curriculum.modules, quest.id);
   const collected = quest.evidence.filter((e) => run.inspected.includes(e.id));
   const showDrawer = collected.length > 0 && engine.isChallenge(scene);
 
@@ -134,16 +152,23 @@ export function QuestScreen({ questId, onPose }: Props) {
     case 'python': body = <PythonView key={scene.id} {...(props as SceneProps<typeof scene>)} />; break;
     case 'excel': body = <ExcelView key={scene.id} {...(props as SceneProps<typeof scene>)} />; break;
     case 'kpi': body = <KpiView key={scene.id} {...(props as SceneProps<typeof scene>)} />; break;
+    case 'schema': body = <SchemaLabView key={scene.id} {...(props as SceneProps<typeof scene>)} draftKey={engine.lessonKey(quest, scene)} />; break;
+    case 'lesson': body = (
+      <>
+        <Speech quest={quest} scene={{ ...scene, lines: undefined }} />
+        <LessonCard lesson={scene.lesson} seenBefore={game.progress.lessons.includes(engine.lessonKey(quest, scene))} action={scene.action || 'Start the exercise'} onContinue={onNext} />
+      </>
+    ); break;
     case 'ending': body = <EndingView {...(props as SceneProps<typeof scene>)} run={run} />; break;
     default: body = null;
   }
 
   return (
     <section className="quest-screen" aria-labelledby="quest-title">
-      <div className="quest-panel">
+      <div className={`quest-panel${scene.type === 'schema' ? ' quest-panel--wide' : ''}`}>
         <header className="quest-head">
           <a className="back-link" href={`#/map/${destination.id}`}>← {destination.name}</a>
-          <p className="eyebrow">Quest {String(quest.number).padStart(2, '0')} · {quest.subject}</p>
+          <p className="eyebrow">Quest {String(quest.number).padStart(2, '0')} · {quest.subject}{module ? ` · Module ${module.number}: ${module.title}` : ''}</p>
           <h1 id="quest-title" className="quest-title">{quest.title}</h1>
           <div className="quest-progress">
             <span id="quest-progress-label">Step {step} of {total}</span>
@@ -151,7 +176,8 @@ export function QuestScreen({ questId, onPose }: Props) {
           </div>
         </header>
         <div ref={stageRef}>
-          <article key={scene.id} className={`scene scene--${scene.type} parchment`}>
+          <article key={scene.id} className={`scene scene--${scene.type} scene--phase-${phase.id} parchment`}>
+            <p className={`phase-badge phase-badge--${phase.id}`}><span aria-hidden="true">{phase.icon} </span>{phase.label}</p>
             <h2 className="scene-title" tabIndex={-1}>{scene.title}</h2>
             {body}
           </article>

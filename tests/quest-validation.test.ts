@@ -18,7 +18,7 @@ describe('shipped content', () => {
   });
 
   test('quest numbers are unique and sequential', () => {
-    expect(QUEST_IDS.map((id) => loadQuest(id).number).sort()).toEqual([1, 2, 3, 4, 5]);
+    expect(QUEST_IDS.map((id) => loadQuest(id).number).sort()).toEqual([1, 2, 3, 4, 5, 6]);
   });
 
   test('every challenge has a meaningful explanation and feedback for every wrong answer', () => {

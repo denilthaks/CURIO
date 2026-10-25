@@ -66,6 +66,11 @@ async function choose(page, text) {
   await page.locator('label.option', { hasText: text }).first().click();
   await page.getByRole('button', { name: /^Check/ }).click();
 }
+async function learn(page, { expectSeen = false } = {}) {
+  await page.waitForSelector('.lesson-card');
+  if (expectSeen) expect(await page.locator('.lesson-seen').isVisible(), 'replayed lesson should open in the short version');
+  await page.locator('.lesson-card .actions button').click();
+}
 async function next(page) { await page.getByRole('button', { name: 'Continue', exact: true }).click(); }
 async function feedbackText(page) { return (await page.locator('[data-feedback]').innerText()).replace(/\s+/g, ' '); }
 async function setCode(page, selector, value) {
@@ -74,14 +79,16 @@ async function setCode(page, selector, value) {
 }
 
 // ---- Playthrough helpers for each quest ----
-async function playMissingSignalPerfect(page) {
+async function playMissingSignalPerfect(page, opts = {}) {
   await page.getByRole('button', { name: 'Investigate' }).click();
   for (const t of ["Organiser's notice", "Assistant's summary", 'Message from Tobin']) await page.getByRole('button', { name: `Inspect ${t}` }).click();
   await page.getByRole('button', { name: "I've read them all" }).click();
+  await learn(page, opts);
   await choose(page, "The organiser's notice"); await next(page);
   await choose(page, 'The start time'); await next(page);
   await choose(page, 'Check the original notice'); await next(page);
   await choose(page, 'No. Keep 14:00'); await next(page);
+  await learn(page, opts);
   await choose(page, 'Using only the organiser'); await next(page);
   await page.getByLabel('Saturday at 14:00').check();
   await page.getByLabel('A small number of laptops are available to borrow').check();
@@ -89,6 +96,34 @@ async function playMissingSignalPerfect(page) {
   await page.getByRole('button', { name: 'Check announcement' }).click(); await next(page);
   await page.getByRole('button', { name: 'See what you learned' }).click();
   await page.waitForURL(/#\/complete\/missing-signal/);
+}
+
+
+// ---- Modelling-lab helpers ----
+function labColumn(page, table, column) {
+  return page.locator('.lab-table', { has: page.locator('.lab-table-name', { hasText: new RegExp(`^${table}$`) }) })
+    .getByRole('button', { name: new RegExp(`^${column}( \\(|$)`) });
+}
+async function connect(page, a, b) {
+  const [ta, ca] = a.split('.');
+  const [tb, cb] = b.split('.');
+  await labColumn(page, ta, ca).click();
+  await labColumn(page, tb, cb).click();
+}
+async function setCardinality(page, endsText, value) {
+  await page.locator('.lab-rel', { hasText: endsText }).locator('select').first().selectOption(value);
+}
+async function seedProgress(page, completed, settings = {}) {
+  const done = (id) => ({ run: { questId: id, sceneIndex: 0, sceneId: 'ending', inspected: [], results: {}, completed: true }, runXp: 50, lastRun: null, lastXp: 0, bestXp: 50, bestStars: 2, completed: true, completions: 1 });
+  await page.evaluate(([ids, st]) => localStorage.setItem('curiotrail.progress', JSON.stringify({
+    version: 3, player: { name: 'Tester', emblem: 'owl' }, quests: Object.fromEntries(ids.map((id) => [id, null])), achievements: [], lessons: [],
+    settings: { motion: 'system', textSize: 'normal', graphics: 'auto', ...st },
+  })), [completed, settings]);
+  await page.evaluate((records) => {
+    const p = JSON.parse(localStorage.getItem('curiotrail.progress'));
+    p.quests = records;
+    localStorage.setItem('curiotrail.progress', JSON.stringify(p));
+  }, Object.fromEntries(completed.map((id) => [id, done(id)])));
 }
 
 const tests = [];
@@ -194,6 +229,21 @@ const tests = [];
     await page.getByRole('button', { name: "I've read them all" }).click();
   });
 
+  await run('L1', 'A theory card appears before the first challenge, with every teaching section', async () => {
+    await page.waitForSelector('.lesson-card');
+    expect((await page.locator('.phase-badge').innerText()).includes('Learn'), 'no Learn badge');
+    const text = await page.locator('.lesson-card').innerText();
+    for (const part of ['You’ll learn to:', 'In plain English', 'Think of it like this', 'Example', 'Why it matters', 'Common mistake', 'Takeaway']) {
+      expect(text.toLowerCase().includes(part.toLowerCase()), `lesson is missing "${part}"`); // CSS may uppercase labels
+    }
+    expect(text.includes('Sources and summaries') && text.includes('cookbook'), 'lesson content not from quest data');
+    await page.locator('.lesson-card summary', { hasText: 'Why it matters' }).click(); // sections collapse
+    expect(!(await page.locator('.lesson-card details', { hasText: 'Why it matters' }).getAttribute('open')), 'section did not collapse');
+    await shot(page, '04b-theory-card');
+    await learn(page);
+    expect((await page.locator('.phase-badge').innerText()).includes('Guided exercise'), 'exercise not labelled as guided');
+  });
+
   await run('A4', 'A wrong answer gives the feedback written for that answer, plus hint 1', async () => {
     await choose(page, "The AI assistant's summary");
     const fb = await feedbackText(page);
@@ -228,11 +278,12 @@ const tests = [];
     await page.reload();
     await page.waitForSelector('.scene-title');
     expect((await sceneTitle(page)) === 'A second opinion?', `after reload: ${await sceneTitle(page)}`);
-    expect((await page.locator('#quest-progress-label').innerText()) === 'Step 6 of 9', 'step not restored');
+    expect((await page.locator('#quest-progress-label').innerText()) === 'Step 7 of 11', 'step not restored');
   });
 
   await run('A6/F', 'Prompt-writing challenge evaluates real choices', async () => {
     await choose(page, 'No. Keep 14:00'); await next(page);
+    await learn(page);
     expect((await sceneTitle(page)) === 'Improve the instructions', 'not at prompt challenge');
     await choose(page, 'Write an exciting announcement');
     expect((await feedbackText(page)).includes('encourages exaggeration'), 'prompt feedback missing');
@@ -302,7 +353,7 @@ const tests = [];
     await page.goto(`${URL_BASE}#/complete/missing-signal`);
     await page.getByRole('button', { name: 'Replay quest' }).click();
     await page.waitForURL(/#\/quest\/missing-signal/);
-    await playMissingSignalPerfect(page);
+    await playMissingSignalPerfect(page, { expectSeen: true });
     const added1 = await page.locator('.stat', { hasText: 'Added to your total' }).locator('dd').innerText();
     expect(added1.trim() === '+30', `perfect replay should add only the improvement (+30), got ${added1}`);
     await page.getByRole('button', { name: 'Replay quest' }).click();
@@ -361,6 +412,7 @@ const tests = [];
     await page.goto(`${URL_BASE}#/quest/the-ledger`);
     await page.getByRole('button', { name: 'Open the ledger' }).click();
     await choose(page, 'Show the product and revenue columns'); await next(page);
+    await learn(page);
     await setCode(page, 'textarea.code-input', "SELECT product, revenue\nFROM sales\nWHERE region = 'north';");
     await page.getByRole('button', { name: 'Check answer' }).click();
     await page.waitForSelector('[data-feedback]');
@@ -372,6 +424,8 @@ const tests = [];
     await page.waitForSelector('.feedback--correct');
     await shot(page, '12-sql-challenge');
     await next(page);
+    expect((await page.locator('.lesson-card').innerText()).includes('coffee shop manager'), 'GROUP BY lesson missing');
+    await learn(page);
     await setCode(page, 'textarea.code-input', 'SELEC product FROM sales');
     await page.getByRole('button', { name: 'Check answer' }).click();
     await page.waitForSelector('.feedback--retry');
@@ -380,6 +434,7 @@ const tests = [];
     await page.getByRole('button', { name: 'Check answer' }).click();
     await page.waitForSelector('.feedback--correct');
     await next(page);
+    await learn(page);
     await setCode(page, 'textarea.code-input', 'SELECT product, SUM(revenue) AS total FROM sales GROUP BY product ORDER BY total DESC LIMIT 1;');
     await page.getByRole('button', { name: 'Check answer' }).click();
     await page.waitForSelector('.feedback--correct');
@@ -393,6 +448,7 @@ const tests = [];
   await run('P9-6b', 'Python quest reproduces the real error and evaluates expressions', async () => {
     await page.goto(`${URL_BASE}#/quest/broken-tally`);
     await page.getByRole('button', { name: 'Look at the program' }).click();
+    await learn(page);
     await choose(page, 'Line 3 tries to join text and a number'); await next(page);
     await page.getByRole('button', { name: 'Check answer' }).click(); // starter contains the bug
     await page.waitForSelector('[data-feedback]');
@@ -404,6 +460,7 @@ const tests = [];
     await page.waitForSelector('.feedback--correct');
     await shot(page, '13-python-challenge');
     await next(page);
+    await learn(page);
     await page.locator('input.code-inline').fill('sum(orders) / len(orders)');
     await page.getByRole('button', { name: 'Check answer' }).click();
     await page.waitForSelector('.feedback--correct');
@@ -421,6 +478,7 @@ const tests = [];
   await run('P9-6c', 'Excel quest evaluates formulas, fill-down and functions', async () => {
     await page.goto(`${URL_BASE}#/quest/market-ledger`);
     await page.getByRole('button', { name: 'Open the spreadsheet' }).click();
+    await learn(page);
     await choose(page, 'B3'); await next(page);
     await page.locator('input.formula-input').fill('=B2*C2');
     expect((await page.locator('td.is-target').innerText()).trim() === '150', 'live preview');
@@ -429,6 +487,7 @@ const tests = [];
     expect((await feedbackText(page)).includes('D5 = 110'), 'fill-down output');
     await shot(page, '14-excel-challenge');
     await next(page);
+    await learn(page);
     await page.locator('input.formula-input').fill('=150+120+120+110');
     await page.getByRole('button', { name: 'Check formula' }).click();
     await page.waitForSelector('[data-feedback]');
@@ -451,6 +510,7 @@ const tests = [];
     await page.goto(`${URL_BASE}#/quest/great-hall-dashboard`);
     await page.getByRole('button', { name: 'Begin' }).click();
     await choose(page, 'A measure linked to a goal'); await next(page);
+    await learn(page);
     // Drag one card with the mouse (scroll so the card and its target are both on screen)…
     await page.locator('.kpi-zone', { hasText: 'Revenue & growth' }).scrollIntoViewIfNeeded();
     await page.evaluate(() => window.scrollBy(0, -160));
@@ -475,9 +535,82 @@ const tests = [];
     await shot(page, '15-kpi-challenge');
     await next(page);
     await choose(page, 'selling more, but keeping less'); await next(page);
+    await learn(page);
     await choose(page, 'A line chart'); await next(page);
     await page.getByRole('button', { name: 'See what you learned' }).click();
     await page.waitForURL(/#\/complete\/great-hall-dashboard/);
+  });
+
+
+  await run('L2', 'Modelling lab: build, get specific feedback, repair, and pass with real rules', async () => {
+    await page.goto(`${URL_BASE}#/map/great-hall`);
+    const item = page.locator('.quest-item', { hasText: 'The Star Chart' });
+    expect((await item.innerText()).includes('Module 5: Data Modelling'), 'module tag missing');
+    await item.getByRole('link', { name: 'Enter quest' }).click();
+    await page.getByRole('button', { name: 'Show me' }).click();
+    await learn(page);
+    await choose(page, 'already summarised'); await next(page);
+    expect((await page.locator('.lesson-simplification').innerText()).includes('many-to-one, single direction'), 'simplification not disclosed');
+    await learn(page);
+    expect((await page.locator('.phase-badge').innerText()).includes('Lab'), 'lab not labelled');
+    // Inspect a distractor's sample rows, then build a flawed model.
+    await page.locator('.lab-tray-item', { hasText: 'ProductList_Export' }).locator('summary').click();
+    expect((await page.locator('.lab-tray-item', { hasText: 'ProductList_Export' }).locator('table').innerText()).match(/102\s+Map[\s\S]*102\s+Map/), 'duplicate key not visible in sample rows');
+    for (const t of ['FactSales', 'DimDate', 'DimCountry', 'ProductList_Export']) await page.getByRole('button', { name: `Add ${t} to model` }).click();
+    // Move a card with the mouse and with the keyboard.
+    const head = page.locator('.lab-table', { has: page.locator('.lab-table-name', { hasText: /^DimDate$/ }) }).locator('.lab-table-head');
+    const before = await head.boundingBox();
+    await page.mouse.move(before.x + 40, before.y + 15);
+    await page.mouse.down();
+    await page.mouse.move(before.x - 60, before.y + 60, { steps: 6 });
+    await page.mouse.up();
+    const afterDrag = await head.boundingBox();
+    expect(Math.abs(afterDrag.x - before.x) > 40, 'mouse drag did not move the card');
+    await head.focus();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    expect((await head.boundingBox()).x > afterDrag.x, 'arrow keys did not move the card');
+    await connect(page, 'FactSales.ProductKey', 'ProductList_Export.ProductKey');
+    await connect(page, 'FactSales.Quantity', 'DimCountry.CountryKey');
+    await connect(page, 'FactSales.DateKey', 'DimDate.DateKey');
+    await setCardinality(page, 'ProductList_Export', 'many-to-one');
+    await setCardinality(page, 'FactSales.DateKey', 'many-to-one');
+    await page.locator('.lab-rel', { hasText: 'FactSales.DateKey' }).locator('select').nth(1).selectOption('both');
+    await page.getByRole('button', { name: 'Check model' }).click();
+    await page.waitForSelector('.feedback--retry');
+    const fb = await feedbackText(page);
+    for (const expected of ['No fact table chosen', 'DimProduct is missing', 'accidentally many-to-many', "ProductKey isn’t unique", 'doesn’t use key fields', 'use a single filter direction', 'Hint 1 of 3']) {
+      expect(fb.includes(expected), `missing feedback: ${expected}`);
+    }
+    await shot(page, '24-lab-feedback');
+    // Repair: remove the wrong links and the distractor, add what's missing.
+    await page.locator('.lab-rel', { hasText: 'FactSales.Quantity' }).getByRole('button', { name: /^Remove/ }).click();
+    await page.getByRole('button', { name: 'Remove ProductList_Export from the model' }).click();
+    expect((await page.locator('.lab-rel').count()) === 1, 'removing the table should remove its relationship');
+    await page.locator('.lab-rel', { hasText: 'FactSales.DateKey' }).locator('select').nth(1).selectOption('single');
+    await page.getByRole('button', { name: 'Add DimProduct to model' }).click();
+    await connect(page, 'FactSales.ProductKey', 'DimProduct.ProductKey');
+    await connect(page, 'DimCountry.CountryKey', 'FactSales.CountryKey'); // from the dimension side
+    await setCardinality(page, 'DimProduct.ProductKey', 'many-to-one');
+    await setCardinality(page, 'DimCountry.CountryKey', 'one-to-many');
+    await page.getByRole('radio', { name: 'FactSales' }).check();
+    await page.getByRole('button', { name: 'Check model' }).click();
+    await page.waitForSelector('.feedback--correct');
+    const why = await page.locator('.lab-why').innerText();
+    expect(why.includes('Each dimension key is unique') && why.includes('All 10 values in FactSales.ProductKey match DimProduct.ProductKey'), why);
+    expect((await feedbackText(page)).includes('+40 XP (solved on attempt 2)'), await feedbackText(page));
+    expect((await page.locator('svg.lab-lines .lab-line').count()) === 3, 'relationship lines not drawn');
+    await shot(page, '25-lab-correct');
+    await next(page);
+    await choose(page, 'DimCountry filters FactSales'); await next(page);
+    await page.getByRole('button', { name: 'See what you learned' }).click();
+    await page.waitForURL(/#\/complete\/star-chart/);
+    // 10 (grain, 1st) + 15 (bonus) ... grain 10+5, lab 40, check 15+5, completion 30 = 105
+    expect((await page.locator('.stat', { hasText: 'XP this run' }).locator('dd').innerText()).trim() === '105', 'lab XP');
+    expect((await page.locator('.badge-card').innerText()).includes('Star Cartographer'), 'badge');
+    const p = await saved(page);
+    expect(p.lessons.includes('star-chart/lesson-keys') && p.lessons.includes('the-ledger/lesson-group-by'), `lessons not saved: ${p.lessons}`);
+    expect(p.version === 3, 'save version');
   });
 
   await run('P9-7/8', 'Rewards come from the engine and persist; destination states update after refresh', async () => {
@@ -499,7 +632,7 @@ const tests = [];
   await run('A13/I', 'Progress & settings: real data, text size, motion, graphics', async () => {
     await page.goto(`${URL_BASE}#/progress`);
     const rows = await page.locator('.progress-table tbody tr').count();
-    expect(rows === 5, `${rows} quest rows`);
+    expect(rows === 6, `${rows} quest rows`);
     await page.getByLabel('Larger text').check();
     expect((await page.evaluate(() => document.documentElement.dataset.textSize)) === 'large', 'text size not applied');
     await page.getByLabel(/Reduce motion/).check();
@@ -510,6 +643,21 @@ const tests = [];
     expect((await page.evaluate(() => document.documentElement.dataset.textSize)) === 'large', 'text size not persisted');
     await page.getByLabel('Standard').check();
     await page.getByLabel('Follow my device setting').check();
+  });
+
+
+  await run('L3', 'Learning path: eight modules from real data, planned modules clearly labelled', async () => {
+    await page.goto(`${URL_BASE}#/progress`);
+    const modules = page.locator('.module-list > li');
+    expect((await modules.count()) === 8, 'expected 8 modules');
+    const text = (await page.locator('.module-list').innerText()).replace(/\s+/g, ' ');
+    expect(text.includes('Module 0: Digital Foundations') && text.includes('Module 5: Data Modelling') && text.includes('Module 7: Analytics and Projects'), text.slice(0, 200));
+    expect((await page.locator('.module--planned').count()) === 5, 'planned modules');
+    expect((await page.locator('.module--completed').count()) === 3, 'completed modules (0, 1 and 5)');
+    expect(text.includes('Lessons read: 3 of 3') && text.includes('Lessons read: 2 of 2'), 'lesson counts for SQL (3) and Data Modelling (2)');
+    expect((await page.locator('.module--planned a, .module--planned button').count()) === 0, 'planned modules must not have controls');
+    await page.locator('.module-list').scrollIntoViewIfNeeded();
+    await shot(page, '26-learning-path');
   });
 
   await run('A15a', 'Graphics off: 2D fallback map, quests still playable', async () => {
@@ -553,6 +701,8 @@ const tests = [];
       await page.keyboard.press('Enter');
     }
     await page.getByRole('button', { name: "I've read them all" }).focus();
+    await page.keyboard.press('Enter');
+    await page.locator('.lesson-card .actions button').focus();
     await page.keyboard.press('Enter');
     await page.getByRole('radio', { name: "The organiser's notice" }).focus();
     await page.keyboard.press('Space');
@@ -604,6 +754,26 @@ const tests = [];
     await c.close();
   });
 
+
+  await run('L4', 'A save from the previous release resumes on the right step after the lesson update', async () => {
+    const c = await browser.newContext({ viewport: { width: 1366, height: 820 } });
+    const p = await c.newPage();
+    watch(p, 'migration');
+    await p.goto(URL_BASE);
+    // Exactly what release 0.2 stored: schema v2, position as an index only (5 = "rumour").
+    await p.evaluate(() => localStorage.setItem('curiotrail.progress', JSON.stringify({
+      version: 2, player: { name: 'Returning', emblem: 'deer' },
+      quests: { 'missing-signal': { run: { questId: 'missing-signal', sceneIndex: 5, inspected: ['notice', 'ai-draft', 'message'], results: { 'find-source': { attempts: 1, solved: true, revealed: false }, 'spot-conflict': { attempts: 1, solved: true, revealed: false }, 'verify-time': { attempts: 1, solved: true, revealed: false } }, completed: false }, runXp: 45, lastRun: null, lastXp: 0, bestXp: 0, bestStars: 0, completed: false, completions: 0 } },
+      achievements: [], settings: { motion: 'reduce', textSize: 'large', graphics: 'off' },
+    })));
+    await p.goto(`${URL_BASE}#/quest/missing-signal`);
+    await p.waitForSelector('.scene-title');
+    expect((await sceneTitle(p)) === 'A second opinion?', `resumed at ${await sceneTitle(p)}`);
+    expect((await p.locator('.hud').innerText()).includes('45'), 'XP lost in migration');
+    expect((await p.evaluate(() => document.documentElement.dataset.textSize)) === 'large', 'settings lost');
+    await c.close();
+  });
+
   // ---- Mobile ----
   await run('A16/H', 'Mobile layout: home, map bottom sheet, quest panel; no sideways scroll; touch targets', async () => {
     const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
@@ -634,6 +804,41 @@ const tests = [];
     await shot(p, '23-mobile-map');
     await p.locator('.destination-card', { hasText: 'The Signal Woods' }).tap();
     await p.waitForURL(/#\/map\/signal-woods/);
+    await c.close();
+  });
+
+
+  await run('L5', 'Mobile: theory card and modelling lab work with taps only (no dragging)', async () => {
+    const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    const p = await c.newPage();
+    watch(p, 'mobile-lab');
+    await p.goto(URL_BASE);
+    await seedProgress(p, ['missing-signal', 'market-ledger', 'great-hall-dashboard', 'the-ledger'], { graphics: 'low' });
+    await p.goto(`${URL_BASE}#/quest/star-chart`);
+    await p.getByRole('button', { name: 'Show me' }).tap();
+    await p.waitForSelector('.lesson-card');
+    await shot(p, '27-mobile-theory-card');
+    await p.locator('.lesson-card .actions button').tap();
+    await p.locator('label.option', { hasText: 'already summarised' }).tap();
+    await p.getByRole('button', { name: /^Check/ }).tap();
+    await p.getByRole('button', { name: 'Continue', exact: true }).tap();
+    await p.locator('.lesson-card .actions button').tap();
+    for (const t of ['FactSales', 'DimProduct', 'DimDate', 'DimCountry']) await p.getByRole('button', { name: `Add ${t} to model` }).tap();
+    expect((await p.locator('.lab-workspace--compact').count()) === 1, 'compact layout not used on a phone');
+    for (const [a, b] of [['FactSales.ProductKey', 'DimProduct.ProductKey'], ['FactSales.DateKey', 'DimDate.DateKey'], ['FactSales.CountryKey', 'DimCountry.CountryKey']]) {
+      const [ta, ca] = a.split('.');
+      const [tb, cb] = b.split('.');
+      await labColumn(p, ta, ca).tap();
+      await labColumn(p, tb, cb).tap();
+    }
+    for (const sel of await p.locator('.lab-rel').all()) await sel.locator('select').first().selectOption('many-to-one');
+    await p.getByRole('radio', { name: 'FactSales' }).tap();
+    await p.getByRole('button', { name: 'Check model' }).tap();
+    await p.waitForSelector('.feedback--correct');
+    const overflow = await p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    expect(!overflow, 'horizontal overflow in the lab on mobile');
+    await p.locator('.lab-workspace').scrollIntoViewIfNeeded();
+    await shot(p, '28-mobile-lab');
     await c.close();
   });
 

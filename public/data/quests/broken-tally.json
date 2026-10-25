@@ -60,6 +60,31 @@
       "action": "Look at the program"
     },
     {
+      "id": "lesson-errors-types",
+      "type": "lesson",
+      "title": "Learn: reading errors and data types",
+      "speaker": "sigrun",
+      "skills": [
+        "read-errors",
+        "fix-types"
+      ],
+      "action": "Start the guided exercise",
+      "lesson": {
+        "concept": "Reading errors and data types",
+        "objective": "Use an error message and a value’s type to find a bug.",
+        "plainEnglish": "Every value in Python has a type: whole numbers are int, decimals are float, text is str, and lists hold several values. Some operations only work between compatible types. + can add two numbers or join two pieces of text, but it can’t mix a number with text. When something goes wrong, Python stops and prints a traceback; its last line names the error and explains it.",
+        "analogy": "A vending machine that takes coins or a card, but not a coin taped to a card. It stops and shows a message saying what it can’t accept.",
+        "example": {
+          "kind": "python",
+          "code": "age = 30\nprint(\"Age: \" + age)        # TypeError: can only concatenate str (not \"int\") to str\nprint(\"Age: \" + str(age))   # Age: 30",
+          "caption": "str() turns a number into text so it can be joined to other text."
+        },
+        "whyItMatters": "Reading the error turns a scary crash into a clue. Many beginner bugs are type mix-ups like this one.",
+        "commonMistake": "Reading the traceback from the top and panicking. Start with the last line: it says what went wrong and usually why.",
+        "takeaway": "Read the last line of the error, then check the types of the values involved."
+      }
+    },
+    {
       "id": "read-error",
       "type": "choice",
       "title": "Read the error",
@@ -139,7 +164,32 @@
       "skills": [
         "fix-types"
       ],
-      "xp": 15
+      "xp": 15,
+      "phase": "guided"
+    },
+    {
+      "id": "lesson-expressions",
+      "type": "lesson",
+      "title": "Learn: calculating from variables",
+      "speaker": "sigrun",
+      "skills": [
+        "write-expressions"
+      ],
+      "action": "Start the guided exercise",
+      "lesson": {
+        "concept": "Calculating from variables",
+        "objective": "Write expressions that work from the data, not typed-in answers.",
+        "plainEnglish": "An expression is code that produces a value, like price * 2 or len(names). Variables are names for values. Writing calculations with variables, instead of typing the numbers, means the program still works when the data changes. Handy built-ins: sum() adds a list, len() counts its items, max() and min() find the largest and smallest, and round(x, n) rounds.",
+        "analogy": "A spreadsheet formula versus a sticky note. The formula updates when the numbers change; the sticky note is wrong the moment they do.",
+        "example": {
+          "kind": "python",
+          "code": "temperatures = [18, 21, 19, 22]\nwarmest = max(temperatures)     # 22\ndays = len(temperatures)        # 4\nspread = warmest - min(temperatures)   # 4",
+          "caption": "Each result is calculated, so it stays right if the list changes."
+        },
+        "whyItMatters": "Hard-coded numbers are a common source of bugs in real reports: the data changes and the typed number doesn’t.",
+        "commonMistake": "Typing in an answer worked out by hand, or dividing by a count you typed instead of calculating it with len().",
+        "takeaway": "Calculate from variables with operators and built-ins; don’t type answers in."
+      }
     },
     {
       "id": "average",
@@ -263,7 +313,8 @@
       "skills": [
         "predict-output"
       ],
-      "xp": 10
+      "xp": 10,
+      "phase": "assessment"
     },
     {
       "id": "ending",

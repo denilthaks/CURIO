@@ -26,7 +26,11 @@ interface SceneBase {
   action?: string;
 }
 
+export type LearningPhase = 'guided' | 'practice' | 'assessment';
+
 interface ChallengeBase extends SceneBase {
+  /** Where this step sits in the learning cycle; shown as a badge. Defaults to practice. */
+  phase?: LearningPhase;
   prompt: string;
   hints: string[];
   explanation: string;
@@ -35,6 +39,25 @@ interface ChallengeBase extends SceneBase {
 }
 
 export interface DialogueScene extends SceneBase { type: 'dialogue' }
+
+/** A theory card. Teaches a concept before it is practised; awards no XP. */
+export interface LessonContent {
+  concept: string;
+  objective: string;
+  plainEnglish: string;
+  analogy: string;
+  example?: { kind: 'sql' | 'python' | 'excel' | 'text' | 'dax'; code: string; caption?: string };
+  whyItMatters: string;
+  commonMistake: string;
+  takeaway: string;
+  /** Honest note when the lesson simplifies a concept for beginners. */
+  simplification?: string;
+}
+export interface LessonScene extends SceneBase {
+  type: 'lesson';
+  lesson: LessonContent;
+  skills: string[]; // objectives this lesson teaches (links weak skills back to lessons)
+}
 export interface EndingScene extends SceneBase { type: 'ending' }
 export interface EvidenceScene extends SceneBase { type: 'evidence'; evidence: string[] }
 
@@ -102,8 +125,54 @@ export interface KpiScene extends ChallengeBase {
   successFeedback?: string;
 }
 
-export type ChallengeScene = ChoiceScene | AssembleScene | SqlScene | PythonScene | ExcelScene | KpiScene;
-export type Scene = DialogueScene | EvidenceScene | EndingScene | ChallengeScene;
+// ---- Data-modelling lab (star schema) ----
+
+export type KeyKind = 'pk' | 'fk';
+export interface LabColumn { name: string; key?: KeyKind; description?: string }
+export interface LabTable {
+  id: string;
+  label: string;
+  /** What one row represents. */
+  grain: string;
+  /** 'transaction' marks a table at transaction-level grain (a valid fact table). */
+  grainLevel: 'transaction' | 'aggregated' | 'lookup';
+  description: string;
+  columns: LabColumn[];
+  rows: Cell[][]; // sample rows used by the validator (uniqueness, matching keys)
+}
+export type Cardinality = 'many-to-one' | 'one-to-many' | 'one-to-one' | 'many-to-many';
+export type FilterDirection = 'single' | 'both';
+export interface ColumnRef { table: string; column: string }
+
+export interface SchemaScene extends ChallengeBase {
+  type: 'schema';
+  tables: LabTable[];
+  requiredTables: string[];
+  factTable: string;
+  dimensions: string[];
+  /** The intended model, used for "show me the answer" and tests. */
+  solution: {
+    tables: string[];
+    relationships: { from: ColumnRef; to: ColumnRef; cardinality: Cardinality; direction: FilterDirection }[];
+  };
+  successFeedback?: string;
+}
+
+export interface LabRelationship {
+  id: string;
+  from: ColumnRef; // the side clicked first
+  to: ColumnRef;
+  cardinality: Cardinality | null; // null = not chosen yet
+  direction: FilterDirection;
+}
+export interface LabModel {
+  placed: { table: string; x: number; y: number }[]; // x, y are 0..1 fractions of the workspace
+  relationships: LabRelationship[];
+  factTable: string | null;
+}
+
+export type ChallengeScene = ChoiceScene | AssembleScene | SqlScene | PythonScene | ExcelScene | KpiScene | SchemaScene;
+export type Scene = DialogueScene | EvidenceScene | EndingScene | LessonScene | ChallengeScene;
 
 export interface Quest {
   schemaVersion: 1;
@@ -122,6 +191,8 @@ export interface Quest {
   xp: { firstTryBonus: number; completion: number };
   badge?: { id: string; name: string; description: string; icon?: string };
   takeaway: string;
+  /** Quests that must be completed first (prerequisite-based unlocking). */
+  requires?: string[];
   scenes: Scene[];
 }
 
@@ -149,6 +220,8 @@ export interface ChallengeResult { attempts: number; solved: boolean; revealed: 
 export interface Run {
   questId: string;
   sceneIndex: number;
+  /** Stable id of the current step; survives content changes that shift indices. */
+  sceneId?: string;
   inspected: string[];
   results: Record<string, ChallengeResult>;
   completed: boolean;
@@ -162,7 +235,8 @@ export type Answer =
   | { query: string; result?: SqlResult; error?: string } // sql (executed by sql-runner)
   | { expression: string } // python
   | { formula: string } // excel
-  | { placement: Record<string, string> }; // kpi
+  | { placement: Record<string, string> } // kpi
+  | { model: LabModel }; // schema lab
 
 export interface Issue { id: string; label: string; text: string }
 
@@ -178,3 +252,21 @@ export interface Outcome {
   canReveal?: boolean;
   explanation?: string;
 }
+
+// ---- Curriculum (modules) ----
+
+export interface CurriculumModule {
+  id: string;
+  number: number;
+  title: string;
+  subject: string;
+  level: 'Beginner' | 'Intermediate' | 'Advanced' | 'Capstone';
+  summary: string;
+  /** Playable quests (including labs) that belong to this module, in order. */
+  quests: string[];
+  /** Topics planned for this module but not built yet. Shown as planned. */
+  planned: string[];
+  /** Modules recommended first (used for Phase 2 gating; informational now). */
+  requires: string[];
+}
+export interface Curriculum { schemaVersion: 1; modules: CurriculumModule[] }

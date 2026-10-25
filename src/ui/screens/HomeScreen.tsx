@@ -52,7 +52,7 @@ export function HomeScreen({ feedbackUrl }: { feedbackUrl: string }) {
       <details className="about card-quiet">
         <summary>About this prototype</summary>
         <ul className="plain-list">
-          <li>Five playable quests: AI literacy, SQL, Python, Excel and business analytics. The Web Frontier is planned and marked as such on the map.</li>
+          <li>Six playable quests with theory cards: AI literacy, SQL, Python, Excel, business analytics and a hands-on data-modelling lab. They’re organised into a learning path of eight modules; modules without content yet are marked as planned.</li>
           <li>{storageAvailable ? 'Progress is saved only in this browser. Clearing browsing data erases it.' : 'Your browser is blocking storage, so progress will not be saved between visits.'}</li>
           <li>No personal data is collected. There are no streaks, timers or leaderboards.</li>
           <li>The island is “Viking Island – Minecraft” by cubical.xyz (CC-BY-4.0), optimised for the web. See the README for full credits.</li>

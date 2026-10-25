@@ -2,15 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { GameProvider, useGame, type Content } from './game';
 import { navigate, useRoute, type Route } from './router';
 import { applySettings, focusMainHeading, prefersReducedMotion } from './a11y';
-import { validateQuest, validateWorld } from '../engine/quest-validation';
-import type { Quest, World } from '../engine/types';
-import { destinationStatus, destinationForQuest } from '../engine/progression';
+import { validateCurriculum, validateQuest, validateRequirements, validateWorld } from '../engine/quest-validation';
+import type { Curriculum, Quest, World } from '../engine/types';
+import { destinationStatus, destinationForQuest, questStatus } from '../engine/progression';
 import { questRecord } from '../engine/progress-store';
 import { detectQuality, webglAvailable } from '../world/capabilities';
 import type { CameraMode, DestinationView, WorldRenderer } from '../world/WorldRenderer';
 import type { Pose } from '../world/characters';
 import { WorldStage, type StageStatus } from '../ui/WorldStage';
 import { TopBar } from '../ui/TopBar';
+import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { HomeScreen } from '../ui/screens/HomeScreen';
 import { StartScreen } from '../ui/screens/StartScreen';
 import { MapScreen } from '../ui/screens/MapScreen';
@@ -37,7 +38,12 @@ async function loadContent(): Promise<Content> {
   }
   const worldErrors = validateWorld(world, ids);
   if (worldErrors.length) throw new Error(`World data is invalid: ${worldErrors[0]}`);
-  return { world, quests: new Map(quests.map((q) => [q.id, q])) };
+  const requirementErrors = validateRequirements(quests);
+  if (requirementErrors.length) throw new Error(requirementErrors[0]);
+  const curriculum = await fetchJson<Curriculum>('data/curriculum.json');
+  const curriculumErrors = validateCurriculum(curriculum, ids);
+  if (curriculumErrors.length) throw new Error(`Curriculum data is invalid: ${curriculumErrors[0]}`);
+  return { world, quests: new Map(quests.map((q) => [q.id, q])), curriculum };
 }
 
 export function App() {
@@ -172,7 +178,7 @@ function Game() {
       />
       <TopBar route={route} />
       <main id="main" ref={mainRef} className="screen" tabIndex={-1}>
-        {screen}
+        <ErrorBoundary resetKey={routeKey}>{screen}</ErrorBoundary>
       </main>
       <div id="announcer" className="sr-only" aria-live="polite" aria-atomic="true" />
     </div>
@@ -192,8 +198,8 @@ function guardRoute(route: Route, game: ReturnType<typeof useGame>): string | nu
     if (route.name === 'quest') {
       const status = destinationStatus(dest, quests, progress);
       if (status === 'locked' || status === 'planned') return `/map/${dest.id}`;
-      const index = dest.quests.indexOf(quest.id);
-      if (index > 0 && !questRecord(progress, dest.quests[index - 1]).completed) return `/map/${dest.id}`;
+      // Order within the destination and quest prerequisites.
+      if (questStatus(quest, dest, progress) === 'locked') return `/map/${dest.id}`;
     }
   }
   if (route.name === 'map' && route.id && !world.destinations.some((d) => d.id === route.id)) return '/map';

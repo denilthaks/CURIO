@@ -4,7 +4,7 @@ import { navigate } from '../../app/router';
 import { announce } from '../../app/a11y';
 import { levelFor, LEVELS, maxXp, restoreRun } from '../../engine/game-engine';
 import { questRecord, totalStars, totalXp, withReplay, withSettings, type Settings } from '../../engine/progress-store';
-import { destinationForQuest, questStatus } from '../../engine/progression';
+import { destinationForQuest, moduleStatus, questStatus, type ModuleStatus } from '../../engine/progression';
 import type { Quality } from '../../world/capabilities';
 import type { WorldRenderer } from '../../world/WorldRenderer';
 import type { StageStatus } from '../WorldStage';
@@ -19,7 +19,7 @@ interface Props {
 }
 
 export function ProgressScreen({ webgl, autoQuality, stageStatus, renderer }: Props) {
-  const { progress, quests, world, update, reset, storageAvailable } = useGame();
+  const { progress, quests, world, update, reset, storageAvailable, curriculum } = useGame();
   const [confirming, setConfirming] = useState(false);
   const [stats, setStats] = useState<ReturnType<WorldRenderer['stats']> | null>(null);
   const xp = totalXp(progress);
@@ -50,6 +50,45 @@ export function ProgressScreen({ webgl, autoQuality, stageStatus, renderer }: Pr
         <p className="hint">
           {level.next ? `${level.next.min - xp} XP until ${level.next.name}.` : 'You have reached the highest level.'} Levels: {LEVELS.map((l) => `${l.name} (${l.min})`).join(', ')}.
         </p>
+
+        <h2>Learning path</h2>
+        <p className="hint">Eight modules, from beginner to capstone. Modules marked “Planned” have no lessons yet: they show what’s coming, and nothing in them is playable.</p>
+        <ol className="module-list">
+          {curriculum.modules.map((m) => {
+            const status = moduleStatus(m, world, quests, progress);
+            const playable = m.quests.map((id) => quests.get(id)!).filter(Boolean);
+            const lessons = playable.flatMap((q) => q.scenes.filter((sc) => sc.type === 'lesson').map((sc) => `${q.id}/${sc.id}`));
+            const read = lessons.filter((k) => progress.lessons.includes(k)).length;
+            return (
+              <li key={m.id} className={`module module--${status}`}>
+                <div className="module-head">
+                  <span className="module-number" aria-hidden="true">{m.number}</span>
+                  <div>
+                    <h3>Module {m.number}: {m.title}</h3>
+                    <p className="module-meta">{m.level} · {m.subject}</p>
+                  </div>
+                  <ModuleChip status={status} />
+                </div>
+                <p>{m.summary}</p>
+                {playable.length > 0 && (
+                  <>
+                    <ul className="module-quests">
+                      {playable.map((q) => {
+                        const dest = destinationForQuest(world, q.id)!;
+                        const st = questStatus(q, dest, progress);
+                        return <li key={q.id}><StatusChip status={st} /> {q.title} <span className="hint">({q.subject})</span></li>;
+                      })}
+                    </ul>
+                    <p className="hint">Lessons read: {read} of {lessons.length}</p>
+                  </>
+                )}
+                {m.planned.length > 0 && (
+                  <p className="module-planned"><span aria-hidden="true">✦</span> <strong>Planned{playable.length ? ' next' : ''}:</strong> {m.planned.join(' · ')}</p>
+                )}
+              </li>
+            );
+          })}
+        </ol>
 
         <h2>Quests</h2>
         <div className="table-scroll" tabIndex={0} role="region" aria-label="Quest progress">
@@ -147,4 +186,16 @@ export function ProgressScreen({ webgl, autoQuality, stageStatus, renderer }: Pr
       </div>
     </section>
   );
+}
+
+const MODULE_LABEL: Record<ModuleStatus, { icon: string; text: string }> = {
+  planned: { icon: '✦', text: 'Planned' },
+  locked: { icon: '🔒', text: 'Locked' },
+  available: { icon: '●', text: 'Available' },
+  'in-progress': { icon: '◐', text: 'In progress' },
+  completed: { icon: '✓', text: 'Completed' },
+};
+
+function ModuleChip({ status }: { status: ModuleStatus }) {
+  return <span className={`status status--${status}`}><span aria-hidden="true">{MODULE_LABEL[status].icon}</span> {MODULE_LABEL[status].text}</span>;
 }

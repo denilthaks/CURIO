@@ -1,5 +1,48 @@
 # Test report
 
+## Learning platform, Phase 1 (latest run)
+
+| Suite | Command | Result |
+|---|---|---|
+| Typecheck | `npm run typecheck` | ✅ no errors |
+| Unit tests | `npm test` | ✅ **99 / 99** in 6 files: the 67 earlier tests, all still passing, plus 32 new |
+| Production build | `npx vite build` | ✅ |
+| Browser end-to-end | `npm run e2e` | ✅ **34 / 34**: the 29 earlier checks, updated for lesson steps, plus 5 new |
+
+**New unit tests** (`tests/learning.test.ts`):
+- Lessons are complete, linked to objectives, placed before their challenge, and award no XP.
+- Reading a lesson is remembered once.
+- The v2 → v3 migration resumes a mid-quest player on the same step, and keeps completion, best XP, stars and unlocks.
+- Every lab rule: missing tables, missing or aggregated fact table, accidental many-to-many from duplicate keys, non-key columns, mismatched keys, dimension-to-dimension links, unset or wrong cardinality, two-way filters, ambiguous duplicate links, an unconnected dimension, and an unused extra table being only a warning. Connecting from the dimension side is accepted.
+- The lab reducer: add, move and nudge, click-to-connect (switching, cancelling and refusing duplicates), editing, removing and repairing relationships, removing a table with its links, reset and load. Tampered models are sanitised.
+- The engine's hints and XP for the lab.
+- Quest prerequisites, including cycle detection; curriculum validation; module status coming from real content.
+
+**New browser checks:**
+- **L1:** the theory card shows every section, its sections collapse, and it leads into a guided exercise.
+- **L2:** the full desktop lab. Inspect a distractor's sample rows, add tables, move a card by mouse and by keyboard, build a flawed model and get 7 specific explanations plus hint 1, remove a relationship and a table, repair the model (one link drawn from the dimension side), pass with +40 XP, see the relationship lines and "Why this model works", finish the assessment, get 105 XP and the badge, with lessons saved.
+- **L3:** the learning path shows 8 modules: 5 planned with no controls, 3 completed, and real lesson counts.
+- **L4:** a real v2 save resumes on "A second opinion?" with XP and settings intact.
+- **L5:** on a phone, the theory card and the whole lab work with taps only, using the stacked layout, with no horizontal scroll.
+
+The existing A11 check now also confirms that replayed lessons open in their short version.
+
+**Bugs found while testing and fixed:**
+- The app crashed when removing a relationship, because the lines were drawn from stale geometry. An error boundary now also keeps any screen error from blanking the game.
+- Every table was outlined red after a check. Only table-level problems flag a table now.
+- The lab rendered in its phone layout on desktop. Lab steps now use a wide panel.
+- On phones, long lines in lesson code examples widened the whole page, which broke taps.
+- The 2D fallback's map labels showed behind quest panels.
+
+**Phase 1 limitations:**
+- The lab's draft is kept in this browser's localStorage, as a convenience; finished results are saved through the normal progress system.
+- The lab's rules are deliberately beginner-level: many-to-one, single direction, one fact table. This simplification is disclosed in the lessons.
+- Screenshots: `docs/screenshots/04b-theory-card.jpg`, `24-lab-feedback.jpg`, `25-lab-correct.jpg`, `26-learning-path.jpg`, `27-mobile-theory-card.jpg` and `28-mobile-lab.jpg`.
+
+---
+
+## Previous release (3D world and five quests)
+
 Produced by actually running the application; nothing here comes from inspecting code alone. Raw results: [`docs/test-results/e2e.json`](test-results/e2e.json). Screenshots: [`docs/screenshots/`](screenshots/).
 
 ## How it was tested

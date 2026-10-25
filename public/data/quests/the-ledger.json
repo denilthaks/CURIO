@@ -10,18 +10,45 @@
   "estimatedMinutes": "6–10",
   "intro": "Mira's archive records every trade made in the woods. Ask the database which product brings in the most money, using real SQL queries.",
   "objectives": [
-    { "id": "read-query", "label": "Read what a SELECT query asks for" },
-    { "id": "filter-rows", "label": "Filter rows with WHERE" },
-    { "id": "group-aggregate", "label": "Group rows and add them up with GROUP BY and SUM" },
-    { "id": "rank-results", "label": "Find the top result with ORDER BY and LIMIT" },
-    { "id": "interpret", "label": "Say only what the data supports" }
+    {
+      "id": "read-query",
+      "label": "Read what a SELECT query asks for"
+    },
+    {
+      "id": "filter-rows",
+      "label": "Filter rows with WHERE"
+    },
+    {
+      "id": "group-aggregate",
+      "label": "Group rows and add them up with GROUP BY and SUM"
+    },
+    {
+      "id": "rank-results",
+      "label": "Find the top result with ORDER BY and LIMIT"
+    },
+    {
+      "id": "interpret",
+      "label": "Say only what the data supports"
+    }
   ],
   "characters": {
-    "mira": { "name": "Mira", "role": "Village archivist", "initial": "M" }
+    "mira": {
+      "name": "Mira",
+      "role": "Village archivist",
+      "initial": "M"
+    }
   },
   "evidence": [],
-  "xp": { "firstTryBonus": 5, "completion": 25 },
-  "badge": { "id": "ledger-reader", "name": "Ledger Reader", "icon": "🗄️", "description": "Asked a database real questions and checked what the answer meant." },
+  "xp": {
+    "firstTryBonus": 5,
+    "completion": 25
+  },
+  "badge": {
+    "id": "ledger-reader",
+    "name": "Ledger Reader",
+    "icon": "🗄️",
+    "description": "Asked a database real questions and checked what the answer meant."
+  },
   "takeaway": "A database answers exactly the question you write. SELECT picks columns, WHERE picks rows, GROUP BY with SUM adds things up, and ORDER BY with LIMIT finds the top result. Then you still decide what the answer does and doesn't prove.",
   "scenes": [
     {
@@ -45,10 +72,26 @@
       "code": "SELECT product, revenue\nFROM sales;",
       "prompt": "What does this query ask the database to do?",
       "options": [
-        { "id": "columns", "text": "Show the product and revenue columns for every row in the sales table", "feedback": "Yes. SELECT lists the columns you want; FROM names the table. With nothing else, you get every row." },
-        { "id": "delete", "text": "Remove the product and revenue columns from the table", "feedback": "SELECT only reads. It never changes or deletes data." },
-        { "id": "sort", "text": "Sort the sales table by product and revenue", "feedback": "Sorting needs ORDER BY. This query just picks which columns to show." },
-        { "id": "total", "text": "Add up all the revenue", "feedback": "Adding up needs SUM(). This query shows the revenue of each row individually." }
+        {
+          "id": "columns",
+          "text": "Show the product and revenue columns for every row in the sales table",
+          "feedback": "Yes. SELECT lists the columns you want; FROM names the table. With nothing else, you get every row."
+        },
+        {
+          "id": "delete",
+          "text": "Remove the product and revenue columns from the table",
+          "feedback": "SELECT only reads. It never changes or deletes data."
+        },
+        {
+          "id": "sort",
+          "text": "Sort the sales table by product and revenue",
+          "feedback": "Sorting needs ORDER BY. This query just picks which columns to show."
+        },
+        {
+          "id": "total",
+          "text": "Add up all the revenue",
+          "feedback": "Adding up needs SUM(). This query shows the revenue of each row individually."
+        }
       ],
       "correct": "columns",
       "hints": [
@@ -56,8 +99,34 @@
         "Nothing in the query says delete, sort or total."
       ],
       "explanation": "SELECT chooses which columns appear in the result; FROM says which table to read. A query on its own never changes the data.",
-      "skills": ["read-query"],
+      "skills": [
+        "read-query"
+      ],
       "xp": 10
+    },
+    {
+      "id": "lesson-where",
+      "type": "lesson",
+      "title": "Learn: filtering rows with WHERE",
+      "speaker": "mira",
+      "skills": [
+        "filter-rows"
+      ],
+      "action": "Start the guided exercise",
+      "lesson": {
+        "concept": "Filtering rows with WHERE",
+        "objective": "Keep only the rows that match a condition.",
+        "plainEnglish": "A table can hold thousands of rows. WHERE tells the database which rows to keep, using a condition such as city = 'Leeds' or price > 10. Text values go in single quotes and must match the data exactly; numbers don’t need quotes.",
+        "analogy": "A librarian fetching only the books from one shelf, instead of carrying out the whole library.",
+        "example": {
+          "kind": "sql",
+          "code": "SELECT customer_name, city\nFROM customers\nWHERE city = 'Leeds';",
+          "caption": "Returns only customers whose city is exactly Leeds."
+        },
+        "whyItMatters": "Most business questions are about a slice of the data: one region, one month, one product. WHERE is how you ask for that slice.",
+        "commonMistake": "Forgetting the quotes around text, or changing its capitalisation. In many databases 'leeds' won’t match 'Leeds'.",
+        "takeaway": "SELECT picks the columns; WHERE picks the rows."
+      }
     },
     {
       "id": "filter-north",
@@ -70,22 +139,129 @@
       "tables": [
         {
           "name": "sales",
-          "columns": ["id", "product", "region", "units", "revenue"],
-          "rows": [[1, "Lantern", "North", 12, 240], [2, "Map", "North", 8, 160], [3, "Compass", "South", 5, 175], [4, "Lantern", "South", 20, 400], [5, "Map", "East", 15, 300], [6, "Compass", "North", 9, 315], [7, "Lantern", "East", 30, 600], [8, "Map", "South", 4, 80]]
+          "columns": [
+            "id",
+            "product",
+            "region",
+            "units",
+            "revenue"
+          ],
+          "rows": [
+            [
+              1,
+              "Lantern",
+              "North",
+              12,
+              240
+            ],
+            [
+              2,
+              "Map",
+              "North",
+              8,
+              160
+            ],
+            [
+              3,
+              "Compass",
+              "South",
+              5,
+              175
+            ],
+            [
+              4,
+              "Lantern",
+              "South",
+              20,
+              400
+            ],
+            [
+              5,
+              "Map",
+              "East",
+              15,
+              300
+            ],
+            [
+              6,
+              "Compass",
+              "North",
+              9,
+              315
+            ],
+            [
+              7,
+              "Lantern",
+              "East",
+              30,
+              600
+            ],
+            [
+              8,
+              "Map",
+              "South",
+              4,
+              80
+            ]
+          ]
         }
       ],
       "starter": "SELECT product, revenue\nFROM sales\n",
       "solution": "SELECT product, revenue\nFROM sales\nWHERE region = 'North';",
-      "expected": { "rows": [["Lantern", 240], ["Map", 160], ["Compass", 315]] },
-      "requireKeywords": ["WHERE"],
+      "expected": {
+        "rows": [
+          [
+            "Lantern",
+            240
+          ],
+          [
+            "Map",
+            160
+          ],
+          [
+            "Compass",
+            315
+          ]
+        ]
+      },
+      "requireKeywords": [
+        "WHERE"
+      ],
       "successFeedback": "Three North sales, exactly as in the table.",
       "hints": [
         "Add a WHERE line after FROM sales to keep only some rows.",
         "Text values go in single quotes: WHERE region = 'North'"
       ],
       "explanation": "WHERE keeps only the rows that match a condition. Text must be in quotes, and the spelling must match the data exactly.",
-      "skills": ["filter-rows"],
-      "xp": 15
+      "skills": [
+        "filter-rows"
+      ],
+      "xp": 15,
+      "phase": "guided"
+    },
+    {
+      "id": "lesson-group-by",
+      "type": "lesson",
+      "title": "Learn: grouping data",
+      "speaker": "mira",
+      "skills": [
+        "group-aggregate"
+      ],
+      "action": "Start the guided exercise",
+      "lesson": {
+        "concept": "Grouping data",
+        "objective": "Calculate one result for each group of rows.",
+        "plainEnglish": "GROUP BY combines rows that share the same value, so you can calculate a result for each group. You pair it with an aggregate function: SUM adds up, COUNT counts rows and AVG finds the average.",
+        "analogy": "A coffee shop manager wants total sales for each drink, rather than one total for every product combined.",
+        "example": {
+          "kind": "sql",
+          "code": "SELECT product_name, SUM(sales) AS total_sales\nFROM transactions\nGROUP BY product_name;",
+          "caption": "One row per drink, each with its own total."
+        },
+        "whyItMatters": "Summaries by group, such as sales per region or orders per customer, are the backbone of reports and dashboards.",
+        "commonMistake": "Selecting a column that isn’t aggregated and isn’t in the GROUP BY. If you group by product_name but also select order_date, the database can’t know which of the many dates to show for each product.",
+        "takeaway": "GROUP BY makes the groups; SUM, COUNT and AVG calculate one value per group."
+      }
     },
     {
       "id": "group-products",
@@ -98,22 +274,129 @@
       "tables": [
         {
           "name": "sales",
-          "columns": ["id", "product", "region", "units", "revenue"],
-          "rows": [[1, "Lantern", "North", 12, 240], [2, "Map", "North", 8, 160], [3, "Compass", "South", 5, 175], [4, "Lantern", "South", 20, 400], [5, "Map", "East", 15, 300], [6, "Compass", "North", 9, 315], [7, "Lantern", "East", 30, 600], [8, "Map", "South", 4, 80]]
+          "columns": [
+            "id",
+            "product",
+            "region",
+            "units",
+            "revenue"
+          ],
+          "rows": [
+            [
+              1,
+              "Lantern",
+              "North",
+              12,
+              240
+            ],
+            [
+              2,
+              "Map",
+              "North",
+              8,
+              160
+            ],
+            [
+              3,
+              "Compass",
+              "South",
+              5,
+              175
+            ],
+            [
+              4,
+              "Lantern",
+              "South",
+              20,
+              400
+            ],
+            [
+              5,
+              "Map",
+              "East",
+              15,
+              300
+            ],
+            [
+              6,
+              "Compass",
+              "North",
+              9,
+              315
+            ],
+            [
+              7,
+              "Lantern",
+              "East",
+              30,
+              600
+            ],
+            [
+              8,
+              "Map",
+              "South",
+              4,
+              80
+            ]
+          ]
         }
       ],
       "starter": "SELECT product, SUM(revenue) AS total\nFROM sales\n",
       "solution": "SELECT product, SUM(revenue) AS total\nFROM sales\nGROUP BY product;",
-      "expected": { "rows": [["Lantern", 1240], ["Map", 540], ["Compass", 490]] },
-      "requireKeywords": ["GROUP BY", "SUM"],
+      "expected": {
+        "rows": [
+          [
+            "Lantern",
+            1240
+          ],
+          [
+            "Map",
+            540
+          ],
+          [
+            "Compass",
+            490
+          ]
+        ]
+      },
+      "requireKeywords": [
+        "GROUP BY",
+        "SUM"
+      ],
       "successFeedback": "One row per product, each with its total.",
       "hints": [
         "SUM(revenue) adds values up, but it needs to know how to split the rows. That's GROUP BY.",
         "Finish the starter with: GROUP BY product"
       ],
       "explanation": "GROUP BY collects rows that share a value into one group; SUM() then adds up each group. Together they turn many rows into one summary row per product.",
-      "skills": ["group-aggregate"],
+      "skills": [
+        "group-aggregate"
+      ],
       "xp": 20
+    },
+    {
+      "id": "lesson-order-limit",
+      "type": "lesson",
+      "title": "Learn: sorting and finding the top",
+      "speaker": "mira",
+      "skills": [
+        "rank-results"
+      ],
+      "action": "Start the guided exercise",
+      "lesson": {
+        "concept": "Sorting and finding the top result",
+        "objective": "Rank results and keep only the first few.",
+        "plainEnglish": "ORDER BY sorts the results: ASC puts the smallest first (the default) and DESC puts the largest first. LIMIT keeps only the first few rows. Together they answer “what’s the top…?” questions.",
+        "analogy": "Sorting a league table by points, then reading only the team at the top.",
+        "example": {
+          "kind": "sql",
+          "code": "SELECT customer_name, SUM(amount) AS spent\nFROM orders\nGROUP BY customer_name\nORDER BY spent DESC\nLIMIT 3;",
+          "caption": "The three customers who spent the most."
+        },
+        "whyItMatters": "Rankings such as best sellers, biggest customers and slowest deliveries are among the most common questions in business.",
+        "commonMistake": "Forgetting DESC, which gives the smallest values first, or using LIMIT without ORDER BY, which returns rows in no guaranteed order.",
+        "takeaway": "ORDER BY … DESC, then LIMIT, gives you the top results."
+      }
     },
     {
       "id": "top-product",
@@ -126,21 +409,96 @@
       "tables": [
         {
           "name": "sales",
-          "columns": ["id", "product", "region", "units", "revenue"],
-          "rows": [[1, "Lantern", "North", 12, 240], [2, "Map", "North", 8, 160], [3, "Compass", "South", 5, 175], [4, "Lantern", "South", 20, 400], [5, "Map", "East", 15, 300], [6, "Compass", "North", 9, 315], [7, "Lantern", "East", 30, 600], [8, "Map", "South", 4, 80]]
+          "columns": [
+            "id",
+            "product",
+            "region",
+            "units",
+            "revenue"
+          ],
+          "rows": [
+            [
+              1,
+              "Lantern",
+              "North",
+              12,
+              240
+            ],
+            [
+              2,
+              "Map",
+              "North",
+              8,
+              160
+            ],
+            [
+              3,
+              "Compass",
+              "South",
+              5,
+              175
+            ],
+            [
+              4,
+              "Lantern",
+              "South",
+              20,
+              400
+            ],
+            [
+              5,
+              "Map",
+              "East",
+              15,
+              300
+            ],
+            [
+              6,
+              "Compass",
+              "North",
+              9,
+              315
+            ],
+            [
+              7,
+              "Lantern",
+              "East",
+              30,
+              600
+            ],
+            [
+              8,
+              "Map",
+              "South",
+              4,
+              80
+            ]
+          ]
         }
       ],
       "starter": "SELECT product, SUM(revenue) AS total\nFROM sales\nGROUP BY product\n",
       "solution": "SELECT product, SUM(revenue) AS total\nFROM sales\nGROUP BY product\nORDER BY total DESC\nLIMIT 1;",
-      "expected": { "rows": [["Lantern", 1240]], "ordered": true },
-      "requireKeywords": ["GROUP BY"],
+      "expected": {
+        "rows": [
+          [
+            "Lantern",
+            1240
+          ]
+        ],
+        "ordered": true
+      },
+      "requireKeywords": [
+        "GROUP BY"
+      ],
       "successFeedback": "Lantern, with 1240 in revenue.",
       "hints": [
         "Sort the grouped results from highest to lowest with ORDER BY … DESC.",
         "Then keep just the first row with LIMIT 1."
       ],
       "explanation": "ORDER BY total DESC puts the biggest total first, and LIMIT 1 keeps only that row. Sorting and limiting is the everyday way to find a top result.",
-      "skills": ["rank-results"],
+      "skills": [
+        "rank-results"
+      ],
       "xp": 20
     },
     {
@@ -151,10 +509,26 @@
       "context": "The query says Lanterns earned 1240, the highest total in the ledger.",
       "prompt": "Which statement can you safely make to the council?",
       "options": [
-        { "id": "revenue", "text": "Lanterns brought in the most revenue in these records", "feedback": "Yes. That's exactly what the query measured, nothing more." },
-        { "id": "profit", "text": "Lanterns are our most profitable product", "feedback": "Profit needs costs, and the ledger has none. High revenue can still mean low profit." },
-        { "id": "future", "text": "Lanterns will sell the most next year too", "feedback": "The ledger describes the past. It can't promise the future." },
-        { "id": "drop", "text": "We should stop selling Compasses", "feedback": "Lowest revenue alone isn't enough to decide that. Compasses might be cheap to make, or bring customers in." }
+        {
+          "id": "revenue",
+          "text": "Lanterns brought in the most revenue in these records",
+          "feedback": "Yes. That's exactly what the query measured, nothing more."
+        },
+        {
+          "id": "profit",
+          "text": "Lanterns are our most profitable product",
+          "feedback": "Profit needs costs, and the ledger has none. High revenue can still mean low profit."
+        },
+        {
+          "id": "future",
+          "text": "Lanterns will sell the most next year too",
+          "feedback": "The ledger describes the past. It can't promise the future."
+        },
+        {
+          "id": "drop",
+          "text": "We should stop selling Compasses",
+          "feedback": "Lowest revenue alone isn't enough to decide that. Compasses might be cheap to make, or bring customers in."
+        }
       ],
       "correct": "revenue",
       "hints": [
@@ -162,8 +536,11 @@
         "Revenue is money coming in. Does the table say anything about costs or next year?"
       ],
       "explanation": "A query answers the question it asked. Revenue isn't profit, and past sales aren't a forecast. Saying exactly what the data shows keeps your analysis trustworthy.",
-      "skills": ["interpret"],
-      "xp": 10
+      "skills": [
+        "interpret"
+      ],
+      "xp": 10,
+      "phase": "assessment"
     },
     {
       "id": "ending",

@@ -110,14 +110,15 @@ describe('progress store (ported from the original suite)', () => {
   });
 });
 
-describe('schema migration v1 → v2', () => {
+describe('schema migration v1 → v2 → v3', () => {
   test('a save from the first release keeps identity, XP and completion, and gains stars', () => {
     const quests = loadAllQuests();
     const quest = quests.get('missing-signal')!;
     // A real v1 save: completed quest, one step needed a hint.
     const results: Run['results'] = {};
     for (const s of quest.scenes) if ('xp' in s) results[s.id] = { attempts: s.id === 'rumour' ? 2 : 1, solved: true, revealed: false };
-    const lastRun = { questId: quest.id, sceneIndex: quest.scenes.length - 1, inspected: ['notice', 'ai-draft', 'message'], results, completed: true };
+    // A real v1 save uses v1/v2 step indices (before lesson steps existed).
+    const lastRun = { questId: quest.id, sceneIndex: store.V2_SCENE_ORDER[quest.id].length - 1, inspected: ['notice', 'ai-draft', 'message'], results, completed: true };
     const v1 = {
       version: 1,
       player: { name: 'Asha', emblem: 'owl' },
@@ -126,7 +127,8 @@ describe('schema migration v1 → v2', () => {
       settings: { motion: 'reduce', textSize: 'large' },
     };
     const loaded = store.createProgressStore(memoryStorage({ [store.STORAGE_KEY]: JSON.stringify(v1) })).load();
-    expect(loaded.version).toBe(2);
+    expect(loaded.version).toBe(store.SCHEMA_VERSION); // v1 → v2 → v3
+    expect(loaded.lessons).toEqual([]);
     expect(loaded.player).toEqual({ name: 'Asha', emblem: 'owl' });
     expect(loaded.settings).toEqual({ motion: 'reduce', textSize: 'large', graphics: 'auto' });
     expect(store.totalXp(loaded)).toBe(120);
