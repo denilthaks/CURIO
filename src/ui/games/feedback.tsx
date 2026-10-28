@@ -10,6 +10,15 @@ import { Actions } from '../quest/common';
 
 const CELL = /^[A-Z][1-9]\d*$/;
 
+/** The next action, named after where it leads, so moving on follows from the story. */
+export function nextLabel(quest: Quest, sceneId: string, practice: boolean): string {
+  if (practice) return 'Practise again';
+  const i = quest.scenes.findIndex((s) => s.id === sceneId);
+  const next = quest.scenes[i + 1];
+  if (!next || !('prompt' in next)) return 'Continue';
+  return `${next.boss ? 'Next stage' : 'Next round'}: ${next.title}`;
+}
+
 /** Cells the engine flagged in its last check (issue ids that are cell addresses). */
 export function flaggedCells(outcome: Outcome | null): string[] {
   if (!outcome || outcome.correct) return [];
@@ -23,15 +32,17 @@ export function GameFeedback({ quest, scene, result, outcome, onReveal, onNext, 
   speaker?: string;
 }) {
   const who = quest.characters[speaker ?? scene.speaker ?? '']?.name;
+  const next = nextLabel(quest, scene.id, practice);
+  const resultId = `result-${scene.id}`;
   if (result.solved && result.revealed) {
     return (
       <div className="feedback feedback--revealed feedback--game" tabIndex={-1} data-feedback>
-        <p className="game-result"><span className="game-result-icon" aria-hidden="true">💡</span><strong>Here’s the answer</strong></p>
+        <p className="game-result"><span className="game-result-icon" aria-hidden="true">💡</span><strong>{outcome?.locked ? 'Out of picks: here’s the evidence, and why' : 'Here’s the answer'}</strong></p>
         {revealedAnswer}
         <p className="game-why-open">{scene.explanation}</p>
         {!practice && <p className="xp-note">No XP for this step, and your recap will show this skill as “reviewed with help”. Replay later for the full reward.</p>}
         {note && <p className="xp-note wager-note">{note}</p>}
-        <Actions><button type="button" className="btn btn-primary btn-lg" onClick={onNext}>Continue</button></Actions>
+        <Actions><button type="button" className="btn btn-primary btn-lg" onClick={onNext}>{next} <span aria-hidden="true">→</span></button></Actions>
       </div>
     );
   }
@@ -39,8 +50,8 @@ export function GameFeedback({ quest, scene, result, outcome, onReveal, onNext, 
     const xp = sceneXp(quest, scene, result);
     const first = isFirstTry(scene, result);
     return (
-      <div className="feedback feedback--correct feedback--game" tabIndex={-1} data-feedback>
-        <p className="game-result">
+      <div className="feedback feedback--correct feedback--game">
+        <p className="game-result" id={resultId}>
           <span className="game-result-icon" aria-hidden="true">✓</span>
           <span className="sr-only">Correct. </span>
           <span>{outcome?.correct && outcome.feedback ? outcome.feedback : 'Solved.'}</span>
@@ -52,7 +63,8 @@ export function GameFeedback({ quest, scene, result, outcome, onReveal, onNext, 
             <summary>Why it works</summary>
             <p>{scene.explanation}</p>
           </details>
-          <button type="button" className="btn btn-primary" onClick={onNext}>Continue <span aria-hidden="true">→</span></button>
+          {/* Focus lands here after a right answer, with the result as its description: one Enter moves on. */}
+          <button type="button" className="btn btn-primary" onClick={onNext} data-feedback aria-describedby={resultId}>{next} <span aria-hidden="true">→</span></button>
         </div>
       </div>
     );

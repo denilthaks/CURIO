@@ -31,9 +31,19 @@ All are pure TypeScript in `src/engine/` and unit-tested. The UI is in `src/ui/g
 | Rune Wheel | `wheel` | The spin is seeded and reproducible, and cannot be re-spun. The landed segment's challenge is evaluated: five of six segments are formulas run by excel-lite (one filled down, one requiring a cell reference rather than a typed constant, one needing brackets); one is an evidence pick. None is multiple choice. The spin never decides a payout. | Spin button; reduced motion lands instantly |
 | Rune match | `match` | Exact pairs; each wrong pair is explained. | Tap pairs (buttons, keyboard-operable); a select menu per rune behind "Use menus instead" |
 | Trader's Gambit | `gambit` | The player's profit formula is checked row by row against the true outcome of **their** orders. It is also probed with orders above demand and zero orders, so a formula that ignores demand fails. The purse and target profit are enforced. | Number fields with +/− steppers |
-| Evidence hunt | `spot` | The player selects the cell (or, for a decision, the row) in the ledger that proves the point. The engine checks the address; each wrong pick is told what that cell actually holds. In the boss the answer cell depends on the run's data variant. An optional working column lets the player calculate first; it is never scored and cannot be selected as evidence. | Every cell is a button; or type the address in the name box and press Enter, as in Excel |
+| Evidence hunt | `spot` | The player selects the cell (or, for a decision, the row) in the ledger that proves the point. The engine checks the address; each wrong pick is told what that cell (and the player's own working) shows, never the answer. **Pick limit:** at most half the candidates, never more than 3 (find-cell 3, verdict 2); the same cell or row is not counted twice; at the limit the answer is shown with its explanation and the step earns nothing. Picks are saved with the run, so reloading does not reset them. In the boss the answer depends on the run's data variant, and the working column is **required and checked first**. | Every cell is a button; or type the address in the name box and press Enter, as in Excel |
 
-**Boss mission (Hrolf's audit).** Five steps of mixed types: workshop, repair, investigation, rune-word and verdict.
+**Boss mission (Hrolf's audit).** Five steps of mixed types, each assessing a stated skill:
+
+| Step | Skill assessed | How |
+|---|---|---|
+| I · Hrolf's figures (workshop) | Build a formula with relative references and fill-down | Formula checked on every filled row; no live preview |
+| II · The short tax (repair) | Diagnose and repair a broken formula | Diagnosis plus a fix that must also pass a second, hidden dataset |
+| III · The missing coins (evidence) | Use a calculation to find evidence | The expected-coins formula (or a difference formula) must be right on this run's data first; then the mismatching count is picked |
+| IV · Hrolf's riddle (rune-word) | Choose the right function from a description (recall) | Rune-word; **counts half** in the boss score because it checks recall, not use |
+| V · The verdict (evidence) | Decide on profit, not revenue | The profit formula (revenue − stock cost) must be right first; then the row to drop is picked |
+
+The boss score is the weighted average of step credit (1 first time, 0.6 after one extra try, 0.3 after more, 0 if revealed), with weights 1, 1, 1, 0.5, 1. The pass mark is 70%.
 
 - Workshop, repair and the two evidence steps each have three data variants, chosen by the run's seed. A memorised answer from one run fails on another (tested). The rune-word step is fixed.
 - The first hint is held back until the second miss.

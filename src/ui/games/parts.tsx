@@ -45,13 +45,17 @@ export function LedgerGrid({ columns, rows, target, fillDownTo, values = {}, lab
   const t = target ? splitRef(target) : null;
   const end = t && fillDownTo ? splitRef(fillDownTo).row : t?.row ?? 0;
   const selectedRow = pick?.selected ? Number(pick.selected.slice(1)) : null;
+  // Verdicts are never colour alone: a ✓ or ✗ mark, and words for screen readers.
+  const verdict = (ref: string) => (highlight.includes(ref) ? 'wrong' : good.includes(ref) ? 'right' : null);
   const cell = (ref: string, c: number, content: ReactNode, text: string) => {
-    if (!pick || c >= pick.columns) return content;
+    const v = verdict(ref);
+    const marked = v ? <>{content}<span className="cell-mark" aria-hidden="true">{v === 'right' ? '✓' : '✗'}</span></> : content;
+    if (!pick || c >= pick.columns) return v ? <>{marked}<span className="sr-only"> ({v})</span></> : content;
     return (
       <button
         type="button" className="cell-btn" disabled={pick.disabled} aria-pressed={pick.selected === ref}
-        aria-label={`${ref}: ${text || 'empty'}`} onClick={() => pick.onPick(ref)}
-      >{content}</button>
+        aria-label={`${ref}: ${text || 'empty'}${v === 'wrong' ? ', already tried' : v === 'right' ? ', the evidence' : ''}`} onClick={() => pick.onPick(ref)}
+      >{marked}</button>
     );
   };
   return (

@@ -36,7 +36,7 @@ function finish(run: Run, quest: Quest = q, answer: (r: Run) => Answer | null = 
       const a = answer(r);
       r = a ? engine.submitAnswer(quest, r, a).run : r;
       if (!engine.resultFor(r, scene.id).solved) {
-        while (engine.resultFor(r, scene.id).attempts < engine.revealAfter(scene)) {
+        while (!engine.resultFor(r, scene.id).solved && engine.resultFor(r, scene.id).attempts < engine.revealAfter(scene)) {
           const before = engine.resultFor(r, scene.id).attempts;
           r = engine.submitAnswer(quest, r, wrongAnswer(scene, r)).run;
           if (engine.resultFor(r, scene.id).attempts === before) throw new Error(`wrong answer for ${scene.id} was not a valid attempt`);
@@ -50,12 +50,13 @@ function finish(run: Run, quest: Quest = q, answer: (r: Run) => Answer | null = 
 }
 
 /** A data cell that does not answer an evidence step (a different row for row steps). */
-function wrongCell(task: SpotTask): string {
+function wrongCell(task: SpotTask, tried: string[] = []): string {
   const rows = task.answer.map((a) => Number(a.slice(1)));
+  const used = (cell: string) => tried.some((t) => (task.select === 'row' ? t.slice(1) === cell.slice(1) : t === cell));
   for (let r = 2; r <= task.rows.length + 1; r += 1) {
     for (let c = 0; c < task.columns.length; c += 1) {
       const cell = `${String.fromCharCode(65 + c)}${r}`;
-      if (task.select === 'row' ? !rows.includes(r) : !task.answer.includes(cell)) return cell;
+      if ((task.select === 'row' ? !rows.includes(r) : !task.answer.includes(cell)) && !used(cell)) return cell;
     }
   }
   throw new Error('no wrong cell');
@@ -71,10 +72,15 @@ function wrongAnswer(scene: ReturnType<typeof engine.currentScene>, run: Run): A
     case 'runeword': return { guess: (scene.word.length === 3 ? ['SUM', 'MIN', 'ABS', 'DAY', 'COS', 'EXP', 'INT', 'LEN'] : ['ACCRINT', 'ADDRESS', 'BESSELI', 'BESSELJ', 'BESSELK', 'BESSELY', 'BETAINV', 'CEILING']).filter((w) => w.length === scene.word.length && !guesses.includes(w) && w !== scene.word)[0] };
     case 'match': return { pairs: Object.fromEntries(scene.left.map((l, i) => [l.id, scene.right[(i + 1) % scene.right.length].id])) };
     case 'gambit': return { orders: scene.items.map((it) => it.demand), formula: scene.solution.formula };
-    case 'spot': return { cell: wrongCell(engine.resolveScene(scene, run)) };
+    case 'spot': {
+      const s = engine.resolveScene(scene, run);
+      // With an assessed working column, a wrong working formula is a miss that uses no pick.
+      if (s.scratch?.solutions?.length) return { cell: s.answer[0], working: '=1+1' };
+      return { cell: wrongCell(s, engine.picksMade(run, scene.id)) };
+    }
     case 'wheel': {
       const c = engine.landedSegment(scene, run)!.challenge;
-      return { response: c.kind === 'choice' ? c.options.find((o) => o.id !== c.correct)!.id : c.kind === 'spot' ? { cell: wrongCell(c) } : { formula: '=1' } };
+      return { response: c.kind === 'choice' ? c.options.find((o) => o.id !== c.correct)!.id : c.kind === 'spot' ? { cell: wrongCell(c, engine.picksMade(run, scene.id)) } : { formula: '=1' } };
     }
     default: throw new Error(`no wrong answer for ${scene.type}`);
   }
@@ -279,9 +285,10 @@ describe('Boss mission with data variants', () => {
     const b = seeds.find((s) => engine.variantIndex(scene, engine.createRun(q, s)) === 1)!;
     const runA = goTo('audit-discrepancy', a);
     const runB = goTo('audit-discrepancy', b);
-    expect(engine.submitAnswer(q, runA, { cell: 'D4' }).outcome.correct).toBe(true);
-    expect(engine.submitAnswer(q, runB, { cell: 'D4' }).outcome.correct).toBe(false);
-    expect(engine.submitAnswer(q, runB, { cell: 'D3' }).outcome.correct).toBe(true);
+    const w = '=B2*C2';
+    expect(engine.submitAnswer(q, runA, { cell: 'D4', working: w }).outcome.correct).toBe(true);
+    expect(engine.submitAnswer(q, runB, { cell: 'D4', working: w }).outcome.correct).toBe(false);
+    expect(engine.submitAnswer(q, runB, { cell: 'D3', working: w }).outcome.correct).toBe(true);
   });
   test('boss steps hold back the first hint', () => {
     const run = goTo('audit-revenue');
@@ -328,8 +335,8 @@ function playRun(seed: number, plan: Record<string, number | 'reveal'> = {}, sta
       if (stakes.includes(scene.id)) r = engine.placeWager(q, r, engine.maxStake(q, r));
       const p = plan[scene.id] ?? 0;
       const misses = p === 'reveal' ? engine.revealAfter(scene) : p;
-      for (let i = 0; i < misses; i += 1) r = engine.submitAnswer(q, r, wrongAnswer(scene, r)).run;
-      r = p === 'reveal' ? engine.revealAnswer(q, r) : engine.submitAnswer(q, r, engine.correctAnswer(scene, r)!).run;
+      for (let i = 0; i < misses && !engine.resultFor(r, scene.id).solved; i += 1) r = engine.submitAnswer(q, r, wrongAnswer(scene, r)).run;
+      if (!engine.resultFor(r, scene.id).solved) r = p === 'reveal' ? engine.revealAnswer(q, r) : engine.submitAnswer(q, r, engine.correctAnswer(scene, r)!).run;
       expect(engine.resultFor(r, scene.id).solved, scene.id).toBe(true);
     }
     r = engine.advance(q, r);
@@ -397,7 +404,8 @@ describe('medals come from demonstrated mastery only', () => {
   });
   test('boss retries cost gold but not the unlock', () => {
     const run = playRun(9, { 'audit-revenue': 1, 'audit-tax': 1 });
-    expect(engine.bossScore(q, run)).toBeCloseTo((0.6 + 0.6 + 1 + 1 + 1) / 5);
+    // The rune step (recall) counts half: (0.6 + 0.6 + 1 + 0.5·1 + 1) / 4.5.
+    expect(engine.bossScore(q, run)).toBeCloseTo((0.6 + 0.6 + 1 + 0.5 + 1) / 4.5, 2);
     expect(engine.isMastered(q, run)).toBe(true);
     expect(engine.computeMedal(q, run)).toBe('silver');
   });
@@ -508,8 +516,8 @@ describe('Evidence steps: the player points at the proof in the ledger', () => {
   });
   test('row steps accept any cell in the right row and nothing else', () => {
     const s = spot('audit-verdict');
-    for (const cell of ['A4', 'B4', 'C4']) expect(engine.evaluate(s, { cell }).correct).toBe(true);
-    for (const cell of ['A2', 'B3', 'C5']) expect(engine.evaluate(s, { cell }).correct).toBe(false);
+    for (const cell of ['A4', 'B4', 'C4']) expect(engine.evaluate(s, { cell, working: '=B2-C2' }).correct).toBe(true);
+    for (const cell of ['A2', 'B3', 'C5']) expect(engine.evaluate(s, { cell, working: '=B2-C2' }).correct).toBe(false);
   });
   test('the explanation step needs the cause (unsold stock), not the nearby numbers', () => {
     const s = spot('explain-restock');
@@ -557,5 +565,120 @@ describe('game quests have one rating: the medal', () => {
   test('course quests keep their star rules', () => {
     const course = loadAllQuests().get('missing-signal')!;
     expect(engine.isGameQuest(course)).toBe(false);
+  });
+});
+
+describe('Evidence picks cannot be won by clicking until correct', () => {
+  const spot = (id: string) => q.scenes.find((s) => s.id === id) as SpotScene;
+  const wheel = q.scenes.find((s) => s.type === 'wheel') as WheelScene;
+  test('each step allows at most half its candidates (never more than three) as wrong picks', () => {
+    const tasks: SpotTask[] = [...q.scenes.filter((s): s is SpotScene => s.type === 'spot'), ...wheel.segments.flatMap((g) => (g.challenge.kind === 'spot' ? [g.challenge] : []))];
+    for (const t of tasks) {
+      expect(engine.pickLimit(t)).toBeLessThanOrEqual(Math.min(3, engine.pickCandidates(t) / 2));
+      expect(engine.pickLimit(t)).toBeGreaterThanOrEqual(1);
+    }
+    expect(engine.pickLimit(spot('find-cell'))).toBe(3); // 15 cells
+    expect(engine.pickLimit(spot('audit-verdict'))).toBe(2); // 4 rows
+  });
+  test('trying the same cell (or the same row) again is not counted', () => {
+    let run = goTo('find-cell');
+    run = engine.submitAnswer(q, run, { cell: 'C3' }).run;
+    const again = engine.submitAnswer(q, run, { cell: 'c3' });
+    expect(again.outcome.valid).toBe(false);
+    expect(again.outcome.message).toMatch(/already tried C3/);
+    expect(engine.resultFor(again.run, 'find-cell').attempts).toBe(1);
+    let v = goTo('audit-verdict');
+    v = engine.submitAnswer(q, v, { cell: 'A2', working: '=B2-C2' }).run;
+    expect(engine.submitAnswer(q, v, { cell: 'C2', working: '=B2-C2' }).outcome.message).toMatch(/already showed row 2/);
+  });
+  test('wrong picks get evidence about that cell, never the answer address', () => {
+    const run = goTo('find-cell');
+    for (const cell of ['C3', 'A2', 'B5']) {
+      const o = engine.submitAnswer(q, run, { cell }).outcome;
+      expect(o.correct).toBe(false);
+      expect(o.feedback).not.toMatch(/\bB3\b/);
+    }
+    const first = engine.submitAnswer(q, run, { cell: 'C3' }).outcome;
+    expect(first.picksLeft).toBe(2);
+    expect(first.hint).toBeTruthy(); // practice steps hint from the first miss
+  });
+  test('at the limit the answer is shown with its explanation; the step earns nothing', () => {
+    let run = goTo('find-cell');
+    let last = engine.submitAnswer(q, run, { cell: 'C3' });
+    for (const cell of ['A2', 'B5']) { run = last.run; last = engine.submitAnswer(q, run, { cell }); }
+    expect(last.outcome.locked).toBe(true);
+    expect(last.outcome.explanation).toBeTruthy();
+    const r = engine.resultFor(last.run, 'find-cell');
+    expect(r).toEqual({ attempts: 3, solved: true, revealed: true });
+    expect(engine.sceneXp(q, spot('find-cell'), r)).toBe(0);
+    expect(engine.stepCredit(spot('find-cell'), r)).toBe(0);
+    // Further submissions are refused, not counted.
+    expect(engine.submitAnswer(q, last.run, { cell: 'B3' }).outcome.valid).toBe(false);
+  });
+  test('a locked evidence step rules out gold, like any revealed answer', () => {
+    const run = playRun(6, { 'find-cell': 3 });
+    expect(engine.resultFor(run, 'find-cell').revealed).toBe(true);
+    expect(engine.computeMedal(q, run)).not.toBe('gold');
+    expect(engine.isMastered(q, run)).toBe(true); // a practice round never takes the unlock away
+  });
+  test('the wheel evidence segment follows the same policy', () => {
+    let run = goTo('rune-wheel');
+    const seg = wheel.segments.find((g) => g.id === 'address')!;
+    run = { ...run, spins: { ...run.spins, 'rune-wheel': seg.id } };
+    for (const cell of ['A2', 'A3', 'A4']) run = engine.submitAnswer(q, run, { response: { cell } }).run;
+    expect(engine.resultFor(run, 'rune-wheel')).toMatchObject({ solved: true, revealed: true });
+  });
+  test('picks survive save and reload; tampered picks are cleaned; a replay starts fresh', () => {
+    let run = goTo('find-cell');
+    run = engine.submitAnswer(q, run, { cell: 'C3' }).run;
+    const restored = engine.restoreRun(q, JSON.parse(JSON.stringify(run)));
+    expect(engine.picksMade(restored, 'find-cell')).toEqual(['C3']);
+    expect(engine.submitAnswer(q, restored, { cell: 'C3' }).outcome.valid).toBe(false);
+    const tampered = engine.restoreRun(q, { ...run, guesses: { 'find-cell': ['C3', 'x', 7, 'B2', 'A2', 'A3', 'A4'] } });
+    expect(engine.picksMade(tampered, 'find-cell')).toEqual(['C3', 'B2', 'A2']);
+    expect(engine.picksMade(engine.createRun(q, 2), 'find-cell')).toEqual([]);
+  });
+});
+
+describe('The boss assesses the skill each step claims', () => {
+  const spot = (id: string) => q.scenes.find((s) => s.id === id) as SpotScene;
+  test('the missing-coins and verdict steps need a correct working formula before a pick counts', () => {
+    const run = goTo('audit-discrepancy', 1);
+    const answer = spot('audit-discrepancy').answer[0];
+    const none = engine.submitAnswer(q, run, { cell: answer });
+    expect(none.outcome.valid).toBe(false); // no working: nothing counted
+    expect(engine.resultFor(none.run, 'audit-discrepancy').attempts).toBe(0);
+    const typed = engine.submitAnswer(q, run, { cell: answer, working: '=150' });
+    expect(typed.outcome.correct).toBe(false); // typed numbers are not a calculation
+    expect(typed.outcome.feedback).toMatch(/checks your working first/);
+    expect(engine.picksMade(typed.run, 'audit-discrepancy')).toEqual([]); // a failed calculation uses no pick
+  });
+  test('either an expected column or a difference column is accepted as working', () => {
+    const run = goTo('audit-discrepancy', 1);
+    const answer = engine.resolveScene(spot('audit-discrepancy'), run).answer[0];
+    for (const working of ['=B2*C2', '=C2*B2', '=D2-B2*C2', '=B2*C2-D2']) {
+      expect(engine.submitAnswer(q, run, { cell: answer, working }).outcome.correct, working).toBe(true);
+    }
+  });
+  test('the verdict needs profit (revenue − cost), not revenue', () => {
+    const run = goTo('audit-verdict', 1);
+    const s = engine.resolveScene(spot('audit-verdict'), run);
+    expect(engine.submitAnswer(q, run, { cell: s.answer[0], working: '=B2' }).outcome.correct).toBe(false);
+    expect(engine.submitAnswer(q, run, { cell: s.answer[0], working: '=B2-C2' }).outcome.correct).toBe(true);
+  });
+  test('a wrong pick after correct working is told what the player’s own working shows', () => {
+    const run = goTo('audit-verdict', 1);
+    const s = engine.resolveScene(spot('audit-verdict'), run);
+    const wrongRow = [2, 3, 4, 5].find((r) => r !== Number(s.answer[0].slice(1)))!;
+    const o = engine.submitAnswer(q, run, { cell: `A${wrongRow}`, working: '=B2-C2' }).outcome;
+    expect(o.feedback).toMatch(/your profit column shows/);
+  });
+  test('the recall step (rune-word) counts half in the boss score; formula steps count fully', () => {
+    const rune = q.scenes.find((s) => s.id === 'audit-rune')!;
+    expect(engine.isChallenge(rune) && rune.bossWeight).toBe(0.5);
+    const missedRune = playRun(9, { 'audit-rune': 'reveal' });
+    const missedFormula = playRun(9, { 'audit-revenue': 'reveal' });
+    expect(engine.bossScore(q, missedRune)).toBeCloseTo(4 / 4.5, 3);
+    expect(engine.bossScore(q, missedFormula)).toBeCloseTo(3.5 / 4.5, 3);
   });
 });

@@ -1,142 +1,145 @@
-# Acceptance review: The Merchant's Ledger game-first slice (polish pass 2)
+# Acceptance review: The Merchant's Ledger (gameplay-integrity and first-player-readiness pass)
 
-Branch `feature/game-first-market-slice`. **Not pushed, not deployed, no pull request.** This reviews one Excel quest (a vertical slice), not the full game-first vision. No learner has played it, so nothing here claims educational effectiveness.
+Branch `feature/game-first-market-slice`. **Not pushed, not deployed, no pull request, nothing merged.** This covers one Excel chapter, a vertical slice. No learner has played it: nothing here, and no automated test, shows that the chapter is educationally effective.
 
-## 1. What changed in this pass
+History on this branch: `5dde7a5` vertical slice → `9de0cf6` review pass → `f23b52d` polish pass (accepted for internal review; its report is at `f23b52d:docs/ACCEPTANCE-REVIEW.md`) → this pass.
 
-### 1.1 Feedback happens in the scene, not in a card
+## 1. Priority 1: click-until-correct
 
-The old loop was: card → Check → "Correct!" panel → "WHY IT MATTERS" → Continue. A new `GameFeedback` component (`src/ui/games/feedback.tsx`) replaces it for every game mechanic.
+### What the risk was
 
-**The ledger gives the verdict in place.** After a check, each target cell turns green (right) or red (wrong, with a short shake), while the formula on screen is the one that was checked.
+Each evidence step was a finite grid with unlimited picks. A player could try cells until one turned green. Retries cost first-time credit, and a reveal was offered after 3 misses, but nothing stopped enumeration. The 4-row verdict step could be brute-forced in 4 clicks.
 
-- Workshop, repair and wheel-formula steps all do this.
-- Boss steps still show no live preview. After a check they show what the checked formula produced.
+| Step | Candidates | Risk before |
+|---|---|---|
+| Where is the honey? (cell) | 15 cells | Enumerable, slowly |
+| Why the rope rotted (cell) | 18 cells | Enumerable, slowly |
+| Audit III: missing coins (cell) | 16 cells (realistically the 4 count cells) | Enumerable among 4 |
+| Audit V: verdict (row) | 4 rows | Trivially enumerable |
+| Wheel CELL segment (cell) | 9 cells | Enumerable |
 
-**The world reacts:**
+### Attempt policy (engine-enforced: `pickLimit`, `picksMade`, `submitAnswer`)
 
-- Evidence, repair and gambit steps now have a market reaction beside their ledger too (scales tip or level, coins pop, crates lift), not just some workshops. Rune-word and match steps react through their own tiles and pairs.
-- The 3D stall now stands beside Tove, inside the quest camera's view. Previously it was about 27 units away and barely visible.
-- Right answers make sparks rise from the stall and its coins hop higher. Wrong answers shake its crates harder.
-- Its lantern turns green-gold or red, a colour change that still shows with reduced motion.
+- **Pick budget:** wrong picks are limited to half the candidates, never more than 3. Concretely, 3 for each cell step and 2 for the 4-row verdict. With 2 of 4 rows, blind guessing passes at most half the time, and only after the working formula is right (see section 2).
+- **Repeats are free:** the same cell, or the same row in a row step, is refused with "You already tried C3" and not counted.
+- **Feedback, not answers:** every wrong pick is told what that cell shows. Where the player has a working column, it also says what their working shows on that row ("Row 3 (Honey): your profit column shows 60…"). A test checks that a wrong-pick message never contains the answer address. Practice steps add a hint from the first miss; boss steps from the second, as before.
+- **The budget is visible:** "Wrong picks left: 2 of 3 · already tried: C3". On the last pick it adds "after one more miss the answer is shown, with no credit". Tried cells keep a ✗ mark.
+- **At the limit:** the answer is shown with its explanation ("Out of picks: here's the evidence, and why"). It is counted exactly like a revealed answer: no XP, no boss credit, no first-time credit, the concept recorded as "seen", and Gold is ruled out.
+- **Saves:** picks are saved with the run, so reloading cannot reset the budget. Tampered picks are cleaned (addresses only, at most 3). A replay starts with no picks.
+- **Calculation misses are not picks:** a wrong working formula in the boss counts as an attempt (it lowers credit, like a wrong workshop formula) but uses no pick. Experimenting with the calculation is not punished as guessing.
 
-**The words are a one-line strip:**
+### Accessibility kept
 
-- The engine's own feedback plus "+XP · first try".
-- "Why it works" sits behind a disclosure.
-- Wrong answers show the specific issues (without repeating the headline) and the hint, attributed to the character.
-- Revealed answers still show the full explanation.
+Every cell is a button with an address-and-value label. Tried cells add ", already tried"; the evidence adds ", the evidence". The name box accepts a typed address with Enter. No step needs drag-and-drop or precise pointing.
 
-**Accessibility:**
+### Tests added
 
-- The existing focus target (`[data-feedback]`) and live-region behaviour are kept.
-- Everything is text or table markup, and animation is removed by the reduced-motion setting.
-- Course quests still use the original feedback card; they are unchanged.
+- **`tests/game-mechanics.test.ts` ("Evidence picks cannot be won by clicking until correct"):**
+  - the budget per step;
+  - repeat picks not counted, for cells and rows;
+  - wrong-pick feedback never names the answer;
+  - the limit shows the answer and the step earns 0 XP and 0 credit, with further submissions refused;
+  - a locked step rules out Gold but not the unlock;
+  - the wheel evidence segment follows the same policy;
+  - picks survive restore, tampering is cleaned, and a replay is fresh.
+- **`tests/saves-and-replay.test.ts`:** a mid-step reload through the real save store keeps the picks, so the third pick still locks.
 
-### 1.2 No plain multiple choice left in the quest
+## 2. Priority 2: does the boss assess the intended skill?
 
-There is a new mechanic, **Evidence hunt** (`spot` scene type). The player selects the cell, or for a decision the row, that proves the point. Every cell is a button, or the player can type the address in an Excel-style name box and press Enter. Selecting is free; only "Point it out" or "Show Hrolf" is checked.
+| Step | Claimed objective | Measured before this pass | Change | Measures now |
+|---|---|---|---|---|
+| I · Hrolf's figures (workshop) | Write formulas that fill down | Formula construction, relative refs; no preview | None | Same: formula construction |
+| II · The short tax (repair) | Debug formulas; use ranges | Diagnosis plus repair, also checked on a hidden second dataset | None | Same: diagnosis and repair |
+| III · The missing coins (evidence) | Use calculations to decide | Only a cell pick; arithmetic optional and unassessed | The expected-coins working column is **required and checked first**. It accepts `=B2*C2` or a difference column (`=D2-B2*C2`, `=B2*C2-D2`); typed numbers are rejected. Then the mismatching count is picked | Formula construction **and** evidence interpretation |
+| IV · Hrolf's riddle (rune-word) | Choose and use SUM/AVERAGE… | Function choice by recall | Kept, but **weight 0.5** in the boss score | Recall, honestly weighted |
+| V · The verdict (evidence) | Decide with data (profit, not revenue) | Only a row pick out of 4 | The profit working column `=B2-C2` is **required and checked first**; then the row is picked | Formula construction **and** the decision |
 
-| Was (multiple choice) | Now |
-|---|---|
-| Where is the honey? (pick B3/C3/B2/A3) | Select the cell holding the honey price, or type its address. Wrong cells are explained by what they hold ("C3 is Honey's quantity sold") |
-| Why the rope rotted (pick one of 4 explanations) | "Where did the other 16 silver go?" Select the cause: the 8 unsold coils (D3). Near-miss cells get targeted feedback, e.g. "2 silver is the cost each: which number, times 2, makes 16?" |
-| Audit III: the missing coins (pick an item) | Select the coins count that doesn't match. The answer cell depends on the run's data variant. An optional working column (never scored, not selectable) lets the player compute price × quantity first |
-| Audit V: the verdict (pick an item) | Select the row of the good to drop. Variant-dependent; working column available |
-| Wheel CELL segment (pick an address) | Select the Gull's cargo cell. Typing requires knowing the address, so the name box is not a shortcut |
-| Wheel ORDER segment (pick 16/36/…) | Build `=(A2+B2)*C2` so that it really makes 36. `=A2+B2*C2` gives 16 and is shown as such |
+**Scoring now reflects what is demonstrated.**
 
-- **Engine:** `evaluateSpot`, `normaliseAddress`, `spotCell`. Addresses like `b3` and `$B$3` are accepted. Selecting outside the ledger, or in the working column, is not counted as an attempt.
-- **Content validation** rejects answers on headings, outside the ledger, or that fail their own check, on every data variant.
+- The boss score is the weighted average of step credit (1 / 0.6 / 0.3 / 0), with weights 1, 1, 1, 0.5, 1. The pass mark stays 70%.
+- Missing the rune step costs 11 points (4/4.5 = 89%). Missing a formula step costs 22 points (3.5/4.5 = 78%). Both are tested.
+- The tasks were not made harder for their own sake. The working formulas are the ones taught earlier in the chapter (revenue in round 2, profit in the Gambit). Working-column preview stays on, because using your calculation to read the ledger is the skill being assessed.
 
-### 1.3 One rating: the medal
+**Tests added ("The boss assesses the skill each step claims"):**
 
-- Game-quest results no longer show stars or the star key.
-- For game quests, stars now mirror the medal (Gold 3, Silver 2, Bronze 1, none 0), so the island-wide ★ total stays consistent without a competing score.
-- The map card and the progress table show the medal for game quests. The progress table's "Stars" column is now titled "Rating".
-- Medal rules are unchanged: mastery evidence only.
+- No working means the pick is not counted.
+- Typed numbers fail without using a pick.
+- Expected and difference columns are both accepted.
+- The verdict needs profit, not revenue.
+- Wrong-pick feedback quotes the player's own working.
+- The weighting is checked.
 
-### 1.4 Mobile, results, HUD
+## 3. Priority 3: segmented question cards
 
-**Rune match:**
+| Moment | Before | Now | Why kept or changed |
+|---|---|---|---|
+| After a right answer | Strip with a generic "Continue →" | Button names where it leads: "Next round: The typical price →" or "Next stage: …". Focus lands on it, with the result as its description, so one Enter moves on | The next action follows from the story. Explicit confirmation is kept so players can look at the ledger verdict, and keyboard and screen-reader users keep control of pacing |
+| After a wrong answer | Strip, hint, reveal | Same, plus ✗ marks and the pick budget in the scene | Recovery needs the player to read; nothing auto-advances |
+| Story transitions | "Open the ledger", "Face the audit", "See your results" | Unchanged | Already narrative actions |
+| Practice rounds | "Continue" | "Practise again" | Says what it does |
 
-- On phones, runes and causes sit side by side (tap a rune, then its cause).
-- The select menus are behind "Use menus instead" instead of under every rune. Both routes stay keyboard-accessible.
+**Not done:** auto-advance after a correct answer. It would remove time to read the verdict, could surprise screen-reader users, and conflicts with reduced-motion expectations. If it is tried later, it should be an opt-in setting.
 
-**Results:** about half the length. The order is now:
+**Perceivable without colour, animation or 3D:**
 
-1. Medal and its evidence.
-2. XP and level.
-3. Unlock or sealed note.
-4. Next, Map and Replay buttons.
-5. Badge.
-6. "Practise next" (up to 3 weak rounds).
-7. One disclosure, "Skills, strengths and every round".
+- Ledger verdicts now carry ✓/✗ marks plus screen-reader text ("(right)", "(wrong)", ", already tried", ", the evidence").
+- The pick budget is text.
+- The result strip is text and receives or announces focus.
+- The 2D and 3D reactions are decorative extras (`aria-hidden`), never the only signal.
+- "Why it works" stays one disclosure away; revealed or locked steps show the full explanation.
 
-**HUD:**
+## 4. Priority 4: usability test
 
-- The first pinned HUD sat at `top: 0`. The page scrolls under the sticky top bar, so it was half-hidden there, and the quest header's back link had been hidden the same way.
-- The HUD now sits outside the header and pins just below the top bar's measured height (`--topbar-h`, set by a `ResizeObserver` in `TopBar`), on every screen size.
-- On phones the rune track compresses into one row.
-- Scroll and focus targets have a matching `scroll-margin-top`.
+The plan is in `docs/USABILITY-TEST.md`. **No sessions have been run; there are no findings.** It contains:
 
-### 1.5 Unchanged by design
+- A facilitator-free script for 3–5 newcomers: verbatim instructions and 5 task prompts.
+- 13 observations to record.
+- Completion criteria: completed, recovered, explained, found the outcome.
+- 10 post-play questions, two with scoring rubrics (fill-down, `$`).
+- Reporting rules: counts not percentages, verbatim quotes, no effectiveness claims.
+- A separate screen-reader checklist (NVDA, VoiceOver, TalkBack) and a real-device mobile checklist.
 
-- Optional silver wagering: still separate, and never affects XP, medals, mastery or unlocks. Tested.
-- Save schema v4 and the v3 migration.
-- excel-lite and formula validation.
-- Reduced motion, the no-WebGL fallback, and all other quests.
+The organiser's start-state save snippet is checked by a unit test, so the plan does not rely on an untried setup.
 
-## 2. What was verified
+## 5. Regression and scope
+
+- **Preserved:**
+  - save schema v4 and the v3 migration;
+  - medal rules (mastery evidence only);
+  - optional silver wagering, independent of XP, medals, mastery and unlocks (tests unchanged and passing);
+  - reduced motion, keyboard alternatives and the no-WebGL fallback.
+- **Not touched:**
+  - the SQL, Python and schema engines (`sql-check.ts`, `python-lite.ts`, `schema-lab.ts`);
+  - `world.json` and the curriculum;
+  - every quest except `market-ledger.json`;
+  - DAX appears only as a lesson-example label (`LessonCard.tsx`, `types.ts`); there is no DAX engine, and nothing DAX-related changed.
+- **Shared UI changed in this pass:** `GameFeedback` (game quests only), `LedgerGrid` (verdict marks; only game views use it) and the e2e `next()` helper (also accepts "Next round/stage").
+
+## 6. Verification on the final state
 
 | Check | Result |
 |---|---|
-| `npm test` (Vitest) | **194 passed**. New: 8 evidence-step tests (address spellings, out-of-bounds and working column not counted, row mode, near-miss feedback, wheel CELL/ORDER, validation rejects bad answers) and 3 rating tests (stars mirror the medal; wagers change neither; course quests keep star rules). Updated: test helpers for the new step type; the "memorised answer fails on another variant" test now uses cells |
+| `npm test` | **208 passed** (194 before this pass). New: 7 pick-policy tests, 5 boss-assessment tests, 2 save tests (picks through the real store; the usability start save). Existing helpers were updated to pick fresh wrong cells and supply the required working formula |
 | `npx tsc --noEmit` | Clean |
 | `npm run build` | Succeeds |
-| `npm run e2e` | **34/34 passed**. P9-6c (the Market quest) was updated: a wrong cell is explained and flagged in the ledger, the name-box route, the fill-down result read from the ledger, match via the menu toggle, and evidence picks in the boss |
-| Diff against `main` | Other quests, `world.json`, curriculum, and the SQL, Python and schema engines are unchanged. Shared UI files changed only as described in 1.3 and 1.4 |
-| Scripted play-through, desktop 1360×860, software WebGL | Gold; a half-right formula (`=B2*C$2`) showed 1 green and 3 red cells; the name box selected B3; stall visible beside Tove; no console errors |
-| Same, phone 390×844, touch | Gold; match side by side without menus; HUD pinned under the top bar; no console errors |
-| Same, graphics off | Gold; no console errors |
-| Same, boss answers revealed (weak player) | No medal; mastery 0; Great Hall stays sealed with the explanation; no console errors |
+| `npm run e2e` | **34/34 passed** on the final build. P9-6c now also checks the pick budget text, the refusal of a repeated pick, and that the boss requires the working formula before a pick. The `next()` helper accepts "Next round/stage". An earlier run hit my 590 s timeout during L5 while unit tests ran alongside; rerun alone, it passed |
+| Diff against `main` | Changes are limited to the Market quest, the game engine, types, game UI, styles, tests and docs. `sql-check.ts`, `python-lite.ts`, `schema-lab.ts`, `world.json`, the curriculum and all other quests are unchanged |
+| Play-throughs | Desktop 1360×860 (software WebGL), phone 390×844 (touch) and graphics off: all **Gold**, with no console errors. Weak player (boss calculations wrong, guessed cells, then revealed): **no medal**, mastery 0, Great Hall sealed with an explanation, no console errors. After a right answer, focus was on "Next round: The typical price →" |
+| Screenshots reviewed | Wrong pick with ✗ and the "2 of 3" budget; solved pick with ✓ and the named next step (phone); boss working column checked first (desktop and phone); verdict row marked ✓ after correct working. A phone layout problem found here was fixed and re-checked: the working column was cut off and headings broke mid-word |
 
-### Screenshots reviewed (desktop, phone, graphics off)
+## 7. Known limitations
 
-- The wrong-cell verdict on an evidence step.
-- The half-right workshop verdict in the ledger.
-- The solved workshop with the compact strip.
-- The boss evidence step with the working column.
-- The match screen on a phone.
-- The results page, collapsed and expanded.
-- The pinned HUD on desktop and phone.
+1. Two of the four verdict rows can still be guessed once the profit column is right. At that point the decision is reading the smallest number, which is the intended skill, but a guesser can still pass with reduced credit.
+2. Hints are per step, not per mistake.
+3. The rune-word weight (0.5) is a design judgement, not calibrated against learner data.
+4. Phone layout: the pinned HUD plus the top bar take about 35% of a small screen. Evidence ledgers with a working column now fit at 390 px, but larger text settings and narrower phones are untested.
+5. Performance on real devices is unmeasured (software rendering in tests runs at 6–9 fps).
+6. Screen-reader behaviour is designed and code-reviewed, but not yet tested with real assistive technology.
+7. Educational effectiveness is unknown. It needs the sessions in `docs/USABILITY-TEST.md` at minimum, and a proper learner study before any claim.
 
-## 3. Still open
+## 8. Proposed next steps (for your decision)
 
-1. **Feedback strip timing.** Every round still ends with a Continue button. This is deliberate (player control, focus management), but it is still a pause.
-2. **Hints are per step, not per mistake.** A fill-down error can get the generic "Formulas start with =…" hint. The per-cell verdict is specific; the hint is not.
-3. **Evidence hunts have a finite search space.** A player can click cells until right; a ledger of 12–24 cells is still harder to guess than 4 options. Retries cost first-time credit and the medal, and reveal is offered after 3 misses, as before.
-4. **The working column is a free calculator in the boss.** This is deliberate: the assessed act is choosing the evidence. It does mean the arithmetic itself is not assessed there.
-5. **Phone layout.**
-   - The pinned HUD plus the two-row top bar take about 35% of an 844px-tall screen.
-   - Wide evidence ledgers (with the working column) scroll sideways inside their frame.
-6. **Performance.** Software rendering ran at 6–9 fps; real devices are unmeasured.
-
-## 4. Needs real-player testing
-
-None of this has been tried by learners. These need observation, not more automated checks:
-
-- Do players read the in-ledger verdict, or only the strip? Is "Why it works" opened when needed?
-- Does the evidence hunt feel like investigation, or like "click until green"?
-- Is the 3D stall reaction noticed while attention is on the panel?
-- Do medals motivate replays? Does the optional silver side-game distract or engage?
-- Screen-reader passes (NVDA, VoiceOver, TalkBack) of the evidence grid and name box.
-- Learning effect: requires a learner study (pre/post or delayed recall). No claim is made here.
-
-## 5. Suggested next improvements
-
-1. Mistake-specific hints: map common wrong formulas (relative vs absolute, missing brackets) to targeted hints.
-2. Auto-advance option after a correct first-try answer, keeping Continue as the default for accessibility.
-3. A compact phone layout: merge the top bar and quest HUD while in a quest.
-4. Evidence hunts that need two cells (cause and effect) for the boss.
-5. Run the play-tests and screen-reader passes in section 4 before extending to other domains.
+1. Run the usability sessions and the screen-reader and real-device checklists; triage the issues found.
+2. Mistake-specific hints for the common formula errors (relative vs absolute, missing brackets, revenue vs profit).
+3. A compact phone quest layout (merge the top bar and HUD).
+4. Only then extend the pattern to other domains.

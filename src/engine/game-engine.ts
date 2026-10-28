@@ -122,6 +122,9 @@ export function restoreRun(quest: Quest, saved: unknown): Run {
     const sc = quest.scenes.find((x) => x.id === id);
     if (sc?.type === 'runeword' && Array.isArray(v)) {
       guesses[id] = v.filter((g): g is string => typeof g === 'string' && g.length === sc.word.length && /^[A-Z]+$/.test(g)).slice(0, sc.maxGuesses + 4);
+    } else if ((sc?.type === 'spot' || sc?.type === 'wheel') && Array.isArray(v)) {
+      // Evidence picks: addresses only, never more than the largest pick limit.
+      guesses[id] = v.filter((g): g is string => normaliseAddress(g) === g).slice(0, 3);
     }
   }
   const run: Run = { questId: quest.id, sceneIndex: index, inspected, results, completed: false, seed, wagers, spins, guesses };
@@ -392,7 +395,7 @@ function evaluateWheel(scene: WheelScene, answer: Answer, run: Run): Evaluation 
     if (!option) return { valid: false, message: 'Choose an answer first.' };
     return { valid: true, correct: option.id === c.correct, feedback: option.feedback, issues: [] };
   }
-  if (c.kind === 'spot') return evaluateSpot(c, response && typeof response === 'object' && 'cell' in response ? response.cell : null);
+  if (c.kind === 'spot') return evaluateSpot(c, response && typeof response === 'object' && 'cell' in response ? response.cell : null, picksMade(run, scene.id));
   const formula = response && typeof response === 'object' && 'formula' in response ? response.formula : '';
   if (!formula || !formula.trim() || formula.trim() === '=') return { valid: false, message: `Build a formula for ${c.target} first.` };
   return evaluateSheet(c, formula);
@@ -418,8 +421,56 @@ export function spotCell(task: Pick<SpotTask, 'columns' | 'rows'>, cell: string)
   return { inside, header: row === 1, value: row === 1 ? task.columns[col] : task.rows[row - 2][col] };
 }
 
-/** The player points at a cell; the engine checks it against the evidence. */
-export function evaluateSpot(task: SpotTask, picked: unknown): Evaluation {
+function evaluateSpotScene(scene: SpotScene, answer: Answer, tried: string[]): Evaluation {
+  const a = answer && typeof answer === 'object' && 'cell' in answer ? answer : null;
+  if (!scene.scratch?.solutions?.length) return evaluateSpot(scene, a?.cell ?? null, tried);
+  // The working column is assessed first: the pick only counts once the calculation is right.
+  const formula = a?.working ?? '';
+  const col = colName(scene.columns.length);
+  if (!formula.trim() || formula.trim() === '=') return { valid: false, message: `First build your ${scene.scratch.label.toLowerCase()} formula in ${col}2 (it is filled down).` };
+  const work = evaluateWorking(scene, formula);
+  if (!work.correct) {
+    return { ...work, values: undefined, feedback: `Hrolf checks your working first. ${work.feedback ?? ''}`.trim() } as Evaluation;
+  }
+  const pick = evaluateSpot(scene, a?.cell ?? null, tried, { label: scene.scratch.label, values: work.values! });
+  if (!pick.valid && normaliseAddress(a?.cell) === null) return { valid: false, message: `Your working is right. Now select the ${scene.select === 'row' ? 'row' : 'cell'} it points to.` };
+  return pick;
+}
+
+// ---- Evidence picks: a proportionate attempt policy ----
+//
+// Evidence steps are finite: a player could click cells until one is right.
+// So a step allows at most half its candidates as wrong picks (never more
+// than three). The same cell, or the same row in a row step, is never
+// counted twice. Each wrong pick is told what that cell shows. When the
+// limit is reached the answer is shown with its explanation and the step
+// earns nothing: no XP, no boss credit, no first-time credit.
+
+/** How many cells (or rows) the player could pick from. */
+export function pickCandidates(task: Pick<SpotTask, 'columns' | 'rows' | 'select'>): number {
+  return task.select === 'row' ? task.rows.length : task.rows.length * task.columns.length;
+}
+
+/** Wrong picks allowed before the answer is shown. */
+export function pickLimit(task: Pick<SpotTask, 'columns' | 'rows' | 'select'>): number {
+  return Math.max(1, Math.min(3, Math.floor(pickCandidates(task) / 2)));
+}
+
+/** Two picks are "the same" when they are the same cell, or the same row in a row step. */
+function pickKey(task: Pick<SpotTask, 'select'>, cell: string): string {
+  return task.select === 'row' ? `row:${cell.slice(1)}` : cell;
+}
+
+/** The wrong picks already made on a step this run. */
+export function picksMade(run: Run | undefined, sceneId: string): string[] {
+  return run?.guesses?.[sceneId] ?? [];
+}
+
+/**
+ * The player points at a cell; the engine checks it against the evidence.
+ * `tried` holds earlier wrong picks; `working` the player's working column, if any.
+ */
+export function evaluateSpot(task: SpotTask, picked: unknown, tried: string[] = [], working?: { label: string; values: Record<string, number> }): Evaluation {
   const cell = normaliseAddress(picked);
   if (!cell) return { valid: false, message: 'Select a cell in the ledger, or type its address (like B3).' };
   const { inside, value, header } = spotCell(task, cell);
@@ -430,11 +481,53 @@ export function evaluateSpot(task: SpotTask, picked: unknown): Evaluation {
     : task.answer.includes(cell);
   const shown = value === null || value === undefined || value === '' ? 'nothing' : String(value);
   if (correct) {
-    return { valid: true, correct: true, issues: [], output: cell, feedback: task.successFeedback ?? `${cell} it is: ${shown}.` };
+    return { valid: true, correct: true, issues: [], output: cell, pick: cell, feedback: task.successFeedback ?? `${cell} it is: ${shown}.` };
+  }
+  if (tried.some((t) => pickKey(task, t) === pickKey(task, cell))) {
+    return { valid: false, message: task.select === 'row' ? `You already showed row ${row}. Pick a different row.` : `You already tried ${cell}. Pick a different cell.` };
   }
   const specific = task.feedback?.[cell] ?? task.feedback?.[`row:${row}`];
-  const fallback = header ? `${cell} is the heading “${shown}”. The evidence is in the rows below.` : `${cell} holds ${shown}. That isn’t the evidence you need.`;
-  return { valid: true, correct: false, issues: [{ id: cell, label: cell, text: specific ?? fallback }], output: cell, feedback: specific ?? fallback };
+  const label = task.rows[row - 2]?.[0];
+  const work = working && !header ? working.values[`${colName(task.columns.length)}${row}`] : undefined;
+  // Evidence-based, never the answer: what this cell (and the player's own working) shows.
+  const fallback = header ? `${cell} is the heading “${shown}”. The evidence is in the rows below.`
+    : work !== undefined ? `${task.select === 'row' ? `Row ${row} (${label})` : `${cell} holds ${shown}`}: your ${working!.label.toLowerCase()} column shows ${Math.round(work * 100) / 100} on that row. Compare it with the other rows.`
+    : `${cell} holds ${shown}. That isn’t the evidence you need.`;
+  const text = specific ?? fallback;
+  return { valid: true, correct: false, issues: [{ id: cell, label: cell, text }], output: cell, pick: cell, feedback: text };
+}
+
+/** The values a formula fills into a column (for a working column's expected results). */
+function columnValues(columns: string[], rows: Cell[][], target: string, last: number, formula: string): Record<string, number> | null {
+  const sheet = makeSheet(columns, rows);
+  const start = splitRef(target);
+  const out: Record<string, number> = {};
+  for (let row = start.row; row <= last; row += 1) {
+    const cell = `${start.col}${row}`;
+    const r = evaluateFormula(row === start.row ? formula : fillFormula(formula, row - start.row), sheet, cell);
+    if (!r.ok) return null;
+    out[cell] = r.value!;
+    sheet[cell] = r.value!;
+  }
+  return out;
+}
+
+/** Check a required working column: it must match one of the accepted formulas' columns on this data. */
+export function evaluateWorking(scene: SpotScene, formula: string): Evaluation & { values?: Record<string, number> } {
+  const col = colName(scene.columns.length);
+  const last = scene.rows.length + 1;
+  const columns = [...scene.columns, scene.scratch!.label];
+  const rows = scene.rows.map((r) => [...r, null]);
+  const task = { columns, rows, target: `${col}2`, fillDownTo: `${col}${last}` };
+  let first: Evaluation | null = null;
+  for (const solution of scene.scratch!.solutions ?? []) {
+    const expected = columnValues(columns, rows, task.target, last, solution);
+    if (!expected) continue;
+    const ev = evaluateSheet({ ...task, expected }, formula);
+    if (ev.correct) return { ...ev, values: expected };
+    first ??= ev;
+  }
+  return first ?? { valid: true, correct: false, issues: [], feedback: 'That working formula does not work on this ledger.' };
 }
 
 function evaluateMatch(scene: MatchScene, answer: Answer): Evaluation {
@@ -552,7 +645,7 @@ export function evaluate(scene: Scene, answer: Answer, run?: Run): Evaluation {
     case 'wheel': return run ? evaluateWheel(s, answer, run) : { valid: false, message: 'Spin the wheel first.' };
     case 'match': return evaluateMatch(s, answer);
     case 'gambit': return evaluateGambit(s, answer);
-    case 'spot': return evaluateSpot(s, answer && typeof answer === 'object' && 'cell' in answer ? answer.cell : null);
+    case 'spot': return evaluateSpotScene(s, answer, picksMade(run, s.id));
     case 'kpi': return evaluateKpi(s, answer);
     case 'schema': return evaluateSchema(s, answer);
     default: return { valid: false, message: 'This step has no answer to check.' };
@@ -599,10 +692,38 @@ export function submitAnswer(quest: Quest, run: Run, answer: Answer): { run: Run
     outcome.canReveal = attempts >= revealAfter(scene);
   }
   let after: Run = { ...run, results: { ...run.results, [scene.id]: next } };
+  const task = pickTask(scene, run);
+  if (task && !result.correct && result.pick) {
+    const picks = [...picksMade(run, scene.id), result.pick];
+    after = { ...after, guesses: { ...(run.guesses || {}), [scene.id]: picks } };
+    const left = pickLimit(task) - picks.length;
+    outcome.picksLeft = Math.max(0, left);
+    if (left <= 0) {
+      // Out of picks: show the answer and why. Counted like a revealed answer.
+      after = { ...after, results: { ...after.results, [scene.id]: { attempts, solved: true, revealed: true } } };
+      outcome.locked = true;
+      outcome.canReveal = false;
+      outcome.hint = null;
+      outcome.explanation = explanation;
+    }
+  } else if (task && !result.correct) {
+    outcome.picksLeft = Math.max(0, pickLimit(task) - picksMade(run, scene.id).length);
+  }
   if (scene.type === 'runeword') {
     after = { ...after, guesses: { ...(run.guesses || {}), [scene.id]: [...(run.guesses?.[scene.id] ?? []), normaliseGuess((answer as { guess: string }).guess)] } };
   }
   return { run: after, outcome };
+}
+
+/** The evidence ledger behind a step, if the step is (or landed on) an evidence pick. */
+export function pickTask(scene: Scene, run: Run): SpotTask | null {
+  const s = resolveScene(scene, run);
+  if (s.type === 'spot') return s;
+  if (s.type === 'wheel') {
+    const seg = landedSegment(s, run);
+    return seg?.challenge.kind === 'spot' ? seg.challenge : null;
+  }
+  return null;
 }
 
 // After several attempts the player may ask to see the answer. The step is
@@ -637,7 +758,7 @@ export function correctAnswer(scene: Scene, run?: Run): Answer | null {
     }
     case 'match': return { pairs: { ...s.pairs } };
     case 'gambit': return { orders: [...s.solution.orders], formula: s.solution.formula };
-    case 'spot': return { cell: s.answer[0] };
+    case 'spot': return s.scratch?.solutions?.length ? { cell: s.answer[0], working: s.scratch.solutions[0] } : { cell: s.answer[0] };
     case 'kpi': return { placement: Object.fromEntries(s.cards.map((c) => [c.id, c.category])) };
     case 'schema': return { model: solutionModel(s) };
     default: return null;
@@ -761,8 +882,10 @@ export function bossScenes(quest: Quest): ChallengeScene[] {
 export function bossScore(quest: Quest, run: Run): number | null {
   const scenes = bossScenes(quest);
   if (!scenes.length) return null;
-  const total = scenes.reduce((s, scene) => s + stepCredit(scene, resultFor(run, scene.id)), 0);
-  return Math.round((total / scenes.length) * 1000) / 1000;
+  const weight = (scene: ChallengeScene) => Math.max(0, scene.bossWeight ?? 1);
+  const total = scenes.reduce((s, scene) => s + weight(scene) * stepCredit(scene, resultFor(run, scene.id)), 0);
+  const max = scenes.reduce((s, scene) => s + weight(scene), 0);
+  return max ? Math.round((total / max) * 1000) / 1000 : 0;
 }
 
 /** A finished run counts as mastered (and unlocks what follows) when the boss score reaches the threshold. */

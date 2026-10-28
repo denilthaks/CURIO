@@ -30,15 +30,15 @@ function play(seed: number, reveal: string[] = []): Run {
     if (scene.type === 'wheel') r = engine.spinWheel(q, r);
     if (engine.isChallenge(scene)) {
       if (reveal.includes(scene.id)) {
-        while (engine.resultFor(r, scene.id).attempts < engine.revealAfter(scene)) {
+        while (!engine.resultFor(r, scene.id).solved && engine.resultFor(r, scene.id).attempts < engine.revealAfter(scene)) {
           const bad = scene.type === 'runeword' ? { guess: ['ACCRINT', 'ADDRESS', 'BESSELI', 'BESSELJ', 'BESSELK', 'BESSELY'][engine.resultFor(r, scene.id).attempts] }
             : scene.type === 'workshop' ? { formula: '=1+1' }
             : scene.type === 'repair' ? { diagnosis: scene.diagnoses.find((d) => d.id !== scene.correctDiagnosis)!.id, formula: scene.solution }
-            : scene.type === 'spot' ? { cell: (engine.resolveScene(scene, r) as SpotScene).answer[0] === 'A2' ? 'A3' : 'A2' }
+            : scene.type === 'spot' ? { cell: (engine.resolveScene(scene, r) as SpotScene).answer[0], working: '=1+1' } // wrong working: a miss that uses no pick
             : (scene as ChoiceScene).options.find((o) => o.id !== (engine.resolveScene(scene, r) as ChoiceScene).correct)!.id;
           r = engine.submitAnswer(q, r, bad as never).run;
         }
-        r = engine.revealAnswer(q, r);
+        if (!engine.resultFor(r, scene.id).solved) r = engine.revealAnswer(q, r);
       } else r = engine.submitAnswer(q, r, engine.correctAnswer(scene, r)!).run;
     }
     r = engine.advance(q, r);
@@ -133,5 +133,33 @@ describe('concept mastery needs real, spaced evidence', () => {
     expect(conceptLevel(m['XL.FN.SUM'])).toBe('demonstrated');
     m = recordConcepts(m, ['XL.FN.SUM'], { firstTry: true, revealed: false, wrongAttempts: 0, context: 'market-ledger/total', day: 53 });
     expect(conceptLevel(m['XL.FN.SUM'])).toBe('mastered');
+  });
+});
+
+describe('evidence picks through the save store', () => {
+  test('a mid-step reload keeps the picks made, so the limit cannot be reset by reloading', () => {
+    let run = engine.createRun(q, 3);
+    run = engine.advance(q, run); // past the opening dialogue to the first evidence step
+    expect(engine.currentScene(q, run).id).toBe('find-cell');
+    run = engine.submitAnswer(q, run, { cell: 'C3' }).run;
+    run = engine.submitAnswer(q, run, { cell: 'A2' }).run;
+    const storage = memoryStorage();
+    const s = store.createProgressStore(storage);
+    s.save(store.withRun(store.defaultProgress(), run, engine.computeXp(q, run)));
+    const reloaded = engine.restoreRun(q, store.createProgressStore(storage).load().quests['market-ledger'].run);
+    expect(engine.picksMade(reloaded, 'find-cell')).toEqual(['C3', 'A2']);
+    const third = engine.submitAnswer(q, reloaded, { cell: 'B5' });
+    expect(third.outcome.locked).toBe(true);
+  });
+});
+
+describe('the usability-test start save (docs/USABILITY-TEST.md)', () => {
+  test('is accepted, asks for a name, and opens the Trading Market at the Merchant’s Ledger', () => {
+    const p = load({ version: 4, player: null,
+      quests: { 'missing-signal': { run: null, runXp: 0, lastRun: null, lastXp: 60, bestXp: 60, bestStars: 3, completed: true, completions: 1, mastered: true, bestMastery: null, bestMedal: 'none', bestSilver: 0 } },
+      achievements: [], lessons: [], settings: { motion: 'system', textSize: 'normal', graphics: 'auto' }, concepts: {} });
+    expect(p.player).toBeNull();
+    expect(progression.isDestinationUnlocked(dest('trading-market'), p)).toBe(true);
+    expect(progression.questStatus(q, dest('trading-market'), p)).toBe('available');
   });
 });

@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Answer, GambitScene, MatchScene, Outcome, RepairScene, Run, RunewordScene, Scene, SpotScene, SpotTask, Tile, TradeReport, WheelScene, WorkshopScene } from '../../engine/types';
-import { GAMBIT_COLUMNS, correctAnswer, landedSegment, normaliseAddress, spotCell, tradeProfit, wheelStopAngle } from '../../engine/game-engine';
+import { GAMBIT_COLUMNS, correctAnswer, landedSegment, normaliseAddress, picksMade, pickLimit, spotCell, tradeProfit, wheelStopAngle } from '../../engine/game-engine';
 import { colName } from '../../engine/excel-lite';
 import { letterStates, normaliseGuess, scoreGuess } from '../../engine/games/runeword';
 import { Actions, CodeBlock, InvalidMessage, Speech, type SceneProps } from '../quest/common';
@@ -244,6 +244,7 @@ export function WheelView(props: GameProps<WheelScene>) {
         <EvidencePicker
           id={`wheel-${scene.id}`} task={challenge} prompt={challenge.prompt} solved={solved} revealed={result.revealed} outcome={props.outcome}
           invalid={invalid} submitLabel="Answer the rune" onSubmit={(cell) => onCheck({ response: { cell } })}
+          tried={picksMade(run, scene.id)} limit={pickLimit(challenge)}
         />
       )}
       {showChallenge && challenge && challenge.kind !== 'spot' && (
@@ -306,32 +307,52 @@ function evidenceText(task: SpotTask): string {
 /**
  * A ledger whose cells can be selected, with an Excel-style name box: type an
  * address and press Enter to select it. Selecting is free; only "pointing it
- * out" is checked. An optional working column lets the player calculate first.
+ * out" is checked, and wrong picks are limited (the engine enforces this; the
+ * player sees how many are left and which cells they have already tried).
+ * A working column lets the player calculate first; in the boss it is required
+ * and checked before the pick.
  */
-function EvidencePicker({ id, task, prompt, solved, revealed, outcome, invalid, submitLabel, onSubmit, working, aside }: {
+function EvidencePicker({ id, task, prompt, solved, revealed, invalid, submitLabel, onSubmit, working, aside, tried, limit }: {
   id: string; task: SpotTask; prompt: string; solved: boolean; revealed: boolean; outcome: Outcome | null; invalid: string | null;
-  submitLabel: string; onSubmit: (cell: string) => void; working?: { label: string }; aside?: React.ReactNode;
+  submitLabel: string; onSubmit: (cell: string, working?: string) => void; working?: { label: string; solutions?: string[] }; aside?: React.ReactNode;
+  tried: string[]; limit: number;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [typed, setTyped] = useState<string | null>(null);
-  const [checked, setChecked] = useState<string | null>(null);
   const [work, setWork] = useState('');
+  const required = Boolean(working?.solutions?.length);
   const workCol = colName(task.columns.length);
   const columns = working ? [...task.columns, working.label] : task.columns;
   const rows = working ? task.rows.map((r) => [...r, null]) : task.rows;
   const last = task.rows.length + 1;
-  const workValues = useMemo(() => (working ? previewColumn(work, columns, rows, `${workCol}2`, `${workCol}${last}`) : {}), [work, working, workCol, last]); // eslint-disable-line react-hooks/exhaustive-deps
+  // After a revealed answer, the working column shows a correct calculation.
+  const shownWork = solved && revealed && required ? working!.solutions![0] : work;
+  const workValues = useMemo(() => (working ? previewColumn(shownWork, columns, rows, `${workCol}2`, `${workCol}${last}`) : {}), [shownWork, working, workCol, last]); // eslint-disable-line react-hooks/exhaustive-deps
   // Once solved, the evidence is marked: the player's own pick, or the answer if it was revealed.
   const selected = solved ? (revealed || !picked ? task.answer[0] : picked) : picked;
   const answerCells = task.select === 'row'
     ? task.answer.flatMap((a) => task.columns.map((_, c) => `${colName(c)}${a.slice(1)}`))
     : task.answer;
-  const flags = !solved && checked && checked === picked ? flaggedCells(outcome) : [];
   const content = selected ? spotCell(task, selected) : null;
   const choose = (cell: string) => { setPicked(cell); setTyped(null); };
+  const left = Math.max(0, limit - tried.length);
+  const workField = working && !(solved && !required) && (
+    <div className="working">
+      <label className="prompt" htmlFor={`${id}-work`}>
+        {required ? `1 · Your ${working.label.toLowerCase()} formula in ${workCol}2` : `Your working in column ${workCol}`}{' '}
+        <span className="hint">({required ? 'checked first' : 'optional, never scored'}; filled down to row {last})</span>
+      </label>
+      <div className="formula-bar">
+        <span className="cell-name" aria-hidden="true">{workCol}2</span>
+        <span className="fx" aria-hidden="true">fx</span>
+        <input id={`${id}-work`} className="formula-input" value={shownWork} readOnly={solved} onChange={(e) => setWork(e.target.value)} placeholder="=" spellCheck={false} autoCapitalize="off" autoCorrect="off" />
+      </div>
+    </div>
+  );
   return (
-    <form className="challenge evidence-hunt" noValidate onSubmit={(e) => { e.preventDefault(); const cell = picked ?? normaliseAddress(typed) ?? (typed ?? ''); setChecked(cell); onSubmit(cell); }}>
+    <form className="challenge evidence-hunt" noValidate onSubmit={(e) => { e.preventDefault(); const cell = picked ?? normaliseAddress(typed) ?? (typed ?? ''); onSubmit(cell, required ? work : undefined); }}>
       <p className="prompt" id={`${id}-prompt`}>{prompt}</p>
+      {required && workField}
       <div className="formula-bar name-bar">
         <label className="sr-only" htmlFor={`${id}-name`}>Name box: type a cell address and press Enter to select it</label>
         <input
@@ -351,20 +372,17 @@ function EvidencePicker({ id, task, prompt, solved, revealed, outcome, invalid, 
       <div className="workshop-stage">
         <LedgerGrid
           columns={columns} rows={rows} values={workValues} label={`Ledger: select the ${task.select === 'row' ? 'row' : 'cell'} that answers. ${prompt}`}
-          highlight={flags} good={solved && !revealed ? answerCells : []}
+          highlight={solved ? [] : tried} good={solved && !revealed ? answerCells : []}
           pick={{ selected, onPick: choose, columns: task.columns.length, mode: task.select, disabled: solved }}
         />
         {aside}
       </div>
-      {working && !solved && (
-        <div className="working">
-          <label className="prompt" htmlFor={`${id}-work`}>Your working in column {workCol} <span className="hint">(optional, never scored; filled down to row {last})</span></label>
-          <div className="formula-bar">
-            <span className="cell-name" aria-hidden="true">{workCol}2</span>
-            <span className="fx" aria-hidden="true">fx</span>
-            <input id={`${id}-work`} className="formula-input" value={work} onChange={(e) => setWork(e.target.value)} placeholder="=" spellCheck={false} autoCapitalize="off" autoCorrect="off" />
-          </div>
-        </div>
+      {!required && workField}
+      {!solved && (
+        <p className={`picks-left${left === 1 ? ' is-last' : ''}`} aria-live="polite">
+          {required && <>{'2 · '}</>}Wrong picks left: <strong>{left} of {limit}</strong>{tried.length > 0 && <> · already tried: {tried.join(', ')}</>}
+          {left === 1 && ' · after one more miss the answer is shown, with no credit.'}
+        </p>
       )}
       <InvalidMessage text={invalid} />
       {!solved && <Actions><button type="submit" className="btn btn-primary btn-lg">{submitLabel}</button></Actions>}
@@ -380,7 +398,8 @@ export function SpotView(props: GameProps<SpotScene>) {
       <Speech quest={quest} scene={scene} />
       <EvidencePicker
         id={`spot-${scene.id}`} task={scene} prompt={scene.prompt} solved={result.solved} revealed={result.revealed} outcome={outcome}
-        invalid={invalid} working={scene.scratch} submitLabel={scene.boss ? 'Show Hrolf' : 'Point it out'} onSubmit={(cell) => onCheck({ cell } as Answer)}
+        invalid={invalid} working={scene.scratch} submitLabel={scene.boss ? 'Show Hrolf' : 'Point it out'} onSubmit={(cell, working) => onCheck((working === undefined ? { cell } : { cell, working }) as Answer)}
+        tried={picksMade(props.run, scene.id)} limit={pickLimit(scene)}
         aside={scene.consequence ? <MarketReaction kind={scene.consequence} state={state} /> : undefined}
       />
       <GameFeedback {...props} revealedAnswer={<CodeBlock code={evidenceText(scene)} label="The evidence" />} />

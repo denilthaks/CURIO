@@ -40,6 +40,8 @@ interface ChallengeBase extends SceneBase {
   concepts?: string[];
   /** Part of the quest's boss mission: scored for mastery, fewer hints. */
   boss?: boolean;
+  /** Weight of this step in the boss score (default 1). A step that checks recall rather than use counts less. */
+  bossWeight?: number;
   /** The player may stake XP on getting this right first time. */
   wager?: boolean;
   /** Short name of the game mechanic, shown on the round banner (e.g. "Ledger Workshop"). */
@@ -113,8 +115,13 @@ export interface SpotTask {
  */
 export interface SpotScene extends ChallengeBase, SpotTask {
   type: 'spot';
-  /** An optional working column the player may fill with a formula to help them. It is never scored. */
-  scratch?: { label: string };
+  /**
+   * A working column the player fills with a formula (filled down). Without
+   * `solutions` it is an optional aid and never scored. With `solutions` it is
+   * required and assessed first: it must produce the same column as one of
+   * the solution formulas on this run's data before the pick is checked.
+   */
+  scratch?: { label: string; solutions?: string[] };
   variants?: DataVariant[];
 }
 
@@ -389,7 +396,7 @@ export type Answer =
   | { diagnosis: string; formula: string } // repair
   | { guess: string } // runeword
   | { response: string | { formula: string } | { cell: string } } // wheel (answer to the landed segment)
-  | { cell: string } // spot (the selected cell's address)
+  | { cell: string; working?: string } // spot (the selected cell's address, and the working formula if required)
   | { pairs: Record<string, string> } // match
   | { orders: number[]; formula: string }; // gambit
 
@@ -410,6 +417,12 @@ export interface Outcome {
   tiles?: Tile[];
   /** Gambit: how the restock played out, row by row. */
   trade?: TradeReport;
+  /** Evidence steps: the cell that was judged (absent when the working column failed first). */
+  pick?: string;
+  /** Evidence steps: wrong picks still allowed before the answer is shown. */
+  picksLeft?: number;
+  /** Evidence steps: the pick limit was reached, so the answer was shown (no credit). */
+  locked?: boolean;
 }
 
 export type Tile = 'hit' | 'near' | 'miss';

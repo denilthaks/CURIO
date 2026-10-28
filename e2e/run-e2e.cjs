@@ -71,7 +71,8 @@ async function learn(page, { expectSeen = false } = {}) {
   if (expectSeen) expect(await page.locator('.lesson-seen').isVisible(), 'replayed lesson should open in the short version');
   await page.locator('.lesson-card .actions button').click();
 }
-async function next(page) { await page.getByRole('button', { name: 'Continue', exact: true }).click(); }
+// Game rounds name the next step ("Next round: …"); course quests say Continue.
+async function next(page) { await page.getByRole('button', { name: /^(Continue|Next round: |Next stage: )/ }).first().click(); }
 async function feedbackText(page) { return (await page.locator('[data-feedback]').innerText()).replace(/\s+/g, ' '); }
 async function setCode(page, selector, value) {
   const el = page.locator(selector);
@@ -484,6 +485,10 @@ const tests = [];
     await page.waitForSelector('.feedback--retry');
     expect((await feedbackText(page)).includes('quantity sold'), 'wrong cell explained');
     expect(await page.locator('.ledger td.is-flag').count() === 1, 'wrong cell flagged in the ledger');
+    expect((await page.locator('.picks-left').innerText()).includes('2 of 3'), 'pick budget shown');
+    await page.getByRole('button', { name: 'Point it out' }).click(); // same cell again: refused, not counted
+    expect((await page.locator('.form-message').innerText()).includes('already tried C3'), 'repeat pick refused');
+    expect((await page.locator('.picks-left').innerText()).includes('2 of 3'), 'repeat pick not counted');
     await page.locator('#spot-find-cell-name').fill('b3'); await page.locator('#spot-find-cell-name').press('Enter');
     await page.getByRole('button', { name: 'Point it out' }).click();
     await page.waitForSelector('.feedback--correct'); await next(page);
@@ -559,11 +564,16 @@ const tests = [];
     await page.waitForSelector('.feedback--correct'); await next(page);
     const rows = async () => page.locator('.ledger tbody tr').evaluateAll((trs) => trs.slice(1).map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent.trim())));
     const odd = (await rows()).findIndex((r) => Number(r[1]) * Number(r[2]) !== Number(r[3])) + 2;
+    // The boss checks the working column before the pick.
     await pickCell(`D${odd}`); await page.getByRole('button', { name: 'Show Hrolf' }).click();
+    expect((await page.locator('.form-message').innerText()).includes('First build your expected formula'), 'working required first');
+    await page.locator('#spot-audit-discrepancy-work').fill('=B2*C2');
+    await page.getByRole('button', { name: 'Show Hrolf' }).click();
     await page.waitForSelector('.feedback--correct'); await next(page);
     await page.locator('#rune-audit-rune').fill('AVERAGE'); await page.getByRole('button', { name: 'Carve the rune' }).click();
     await page.waitForSelector('.feedback--correct'); await next(page);
     const drop = (await rows()).map((r, i) => [i + 2, Number(r[1]) - Number(r[2])]).sort((a, b) => a[1] - b[1])[0][0];
+    await page.locator('#spot-audit-verdict-work').fill('=B2-C2');
     await pickCell(`A${drop}`); await page.getByRole('button', { name: 'Show Hrolf' }).click();
     await page.waitForSelector('.feedback--correct'); await next(page);
     await page.getByRole('button', { name: 'See your results' }).click();

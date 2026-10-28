@@ -300,3 +300,21 @@
 .results-more > summary { cursor: pointer; font-weight: 800; font-size: var(--step-1); color: var(--mist-strong); }
 .results-more[open] > summary { margin-bottom: var(--space-3); }
 .practise-next h2 { margin-top: var(--space-4); }
+
+/* Verdict marks (never colour alone) and the evidence pick budget. */
+.cell-mark { margin-left: 0.35em; font-weight: 900; }
+.ledger td.is-flag .cell-mark { color: var(--rose); }
+.ledger td.is-good .cell-mark { color: var(--green); }
+.picks-left { margin: var(--space-2) 0 0; font-size: var(--step--1); }
+.picks-left.is-last { color: #8a3a00; font-weight: 700; }
+
+/* Phones: an evidence ledger with its working column must fit without sideways scrolling,
+   because the player reads their own working against the evidence. */
+@media (max-width: 640px) {
+  .ledger--pick { font-size: 0.85rem; }
+  .ledger--pick th { width: 1.6rem; padding: 0.3rem 0.2rem; }
+  .ledger--pick td.sheet-header, .ledger--pick td.is-working { padding: 0.3rem 0.35rem; }
+  .ledger--pick .cell-btn { padding: 0.3rem 0.35rem; }
+  .ledger--pick .sheet-header { font-size: 0.72rem; line-height: 1.2; overflow-wrap: normal; word-break: normal; }
+  .ledger--pick td.sheet-header .cell-btn { padding: 0.3rem 0.25rem; }
+}

@@ -1654,23 +1654,23 @@
       "speaker": "hrolf",
       "context": "My men counted the coins for each item. One item's coins don't match what the ledger says it sold. Find it.",
       "hints": [
-        "Expected coins = Price × Qty sold, row by row.",
-        "Compare each product with the Coins counted column."
+        "Expected coins = Price × Qty sold, row by row: =B2*C2.",
+        "Compare each Coins counted cell with your Expected column on the same row."
       ],
       "explanation": "Reconciling expected against actual, row by row, is how real audits find missing money.",
       "skills": [
-        "read-cells",
+        "write-formulas",
         "decide-with-data"
       ],
       "concepts": [
         "XL.OPS.ARITH",
-        "XL.CELL.ADDRESS"
+        "XL.REF.RELATIVE"
       ],
       "xp": 20,
       "phase": "assessment",
       "boss": true,
       "type": "spot",
-      "prompt": "Select the coins count that doesn't match price × quantity sold. You may work in the spare column first.",
+      "prompt": "Build the expected coins for each item in E2 (it fills down), then select the count that doesn't match.",
       "columns": [
         "Item",
         "Price",
@@ -1772,9 +1772,14 @@
         }
       ],
       "scratch": {
-        "label": "Working"
+        "label": "Expected",
+        "solutions": [
+          "=B2*C2",
+          "=D2-B2*C2",
+          "=B2*C2-D2"
+        ]
       },
-      "successFeedback": "That count is short. Hrolf's men recount it, and you were right.",
+      "successFeedback": "Your working proves it: that count is short. Hrolf's men recount it, and you were right.",
       "consequence": "coins"
     },
     {
@@ -1802,7 +1807,8 @@
         "XL.FN.AVERAGE"
       ],
       "xp": 20,
-      "phase": "assessment"
+      "phase": "assessment",
+      "bossWeight": 0.5
     },
     {
       "id": "audit-verdict",
@@ -1811,8 +1817,8 @@
       "speaker": "hrolf",
       "context": "Next season the Jarl allows only three goods per stall. Here is what each earned and what its stock cost.",
       "hints": [
-        "High revenue isn't the same as high profit.",
-        "Profit = Revenue − Stock cost for each row; drop the smallest."
+        "Profit = Revenue − Stock cost: =B2-C2.",
+        "Drop the good with the smallest profit in your column, not the smallest revenue."
       ],
       "explanation": "Decide on profit, not revenue: a good that sells a lot can still earn the least.",
       "skills": [
@@ -1825,7 +1831,7 @@
       "phase": "assessment",
       "boss": true,
       "type": "spot",
-      "prompt": "Select the good Tove should drop: any cell in its row. You may work out each profit in the spare column first.",
+      "prompt": "Work out each good's profit in D2 (it fills down), then select the row of the good Tove should drop.",
       "columns": [
         "Item",
         "Revenue",
@@ -1914,9 +1920,12 @@
         }
       ],
       "scratch": {
-        "label": "Working"
+        "label": "Profit",
+        "solutions": [
+          "=B2-C2"
+        ]
       },
-      "successFeedback": "The lowest profit, revenue − stock cost. Hrolf nods and stamps the ledger.",
+      "successFeedback": "The lowest profit, as your working shows. Hrolf nods and stamps the ledger.",
       "consequence": "crates"
     },
     {

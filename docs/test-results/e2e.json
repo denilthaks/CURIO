@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-28T12:44:55.439Z",
+  "date": "2026-10-28T14:07:20.526Z",
   "base": "http://localhost:4321/CURIO/",
   "browser": "Chromium (SwiftShader software WebGL)",
   "passed": 34,
@@ -9,199 +9,199 @@
       "id": "A1",
       "title": "Home screen loads from the /CURIO/ base path",
       "status": "pass",
-      "ms": 11151
+      "ms": 11525
     },
     {
       "id": "A14",
       "title": "3D world renders genuine geometry attached to the island",
       "status": "pass",
-      "ms": 8892
+      "ms": 10211
     },
     {
       "id": "A2",
       "title": "\"Start Your First Quest\" opens the identity step, then the real quest",
       "status": "pass",
-      "ms": 8576
+      "ms": 8354
     },
     {
       "id": "C",
       "title": "Story introduction shows Mira (3D character + dialogue) and transitions to the investigation",
       "status": "pass",
-      "ms": 10739
+      "ms": 10566
     },
     {
       "id": "A3",
       "title": "All three evidence items can be inspected; continue is gated until then",
       "status": "pass",
-      "ms": 11404
+      "ms": 15121
     },
     {
       "id": "L1",
       "title": "A theory card appears before the first challenge, with every teaching section",
       "status": "pass",
-      "ms": 8877
+      "ms": 10926
     },
     {
       "id": "A4",
       "title": "A wrong answer gives the feedback written for that answer, plus hint 1",
       "status": "pass",
-      "ms": 8603
+      "ms": 10258
     },
     {
       "id": "A5",
       "title": "A correct answer gives the explanation from the quest data and XP",
       "status": "pass",
-      "ms": 9205
+      "ms": 11140
     },
     {
       "id": "A7",
       "title": "Hints progress and the answer can be revealed after three tries (no XP)",
       "status": "pass",
-      "ms": 9606
+      "ms": 11580
     },
     {
       "id": "A10",
       "title": "Refreshing the browser preserves progress mid-quest",
       "status": "pass",
-      "ms": 6310
+      "ms": 8663
     },
     {
       "id": "A6/F",
       "title": "Prompt-writing challenge evaluates real choices",
       "status": "pass",
-      "ms": 17518
+      "ms": 19375
     },
     {
       "id": "A4b",
       "title": "The final announcement lists every unsupported line",
       "status": "pass",
-      "ms": 16284
+      "ms": 18656
     },
     {
       "id": "A8/G",
       "title": "Completion shows engine-calculated XP, level change, stars and skill statuses",
       "status": "pass",
-      "ms": 8696
+      "ms": 9324
     },
     {
       "id": "A9",
       "title": "Completion unlocks only the appropriate content",
       "status": "pass",
-      "ms": 7927
+      "ms": 9203
     },
     {
       "id": "A11",
       "title": "Replaying a quest never duplicates rewards",
       "status": "pass",
-      "ms": 76318
+      "ms": 83404
     },
     {
       "id": "P9-4",
       "title": "Each destination can be selected from the island and opens its details",
       "status": "pass",
-      "ms": 10235
+      "ms": 9787
     },
     {
       "id": "P9-3",
       "title": "The camera can inspect the island (drag, keyboard and buttons)",
       "status": "pass",
-      "ms": 11701
+      "ms": 12426
     },
     {
       "id": "P9-6a",
       "title": "SQL quest runs real queries and evaluates them",
       "status": "pass",
-      "ms": 28723
+      "ms": 33577
     },
     {
       "id": "P9-6b",
       "title": "Python quest reproduces the real error and evaluates expressions",
       "status": "pass",
-      "ms": 24588
+      "ms": 27850
     },
     {
       "id": "P9-6c",
       "title": "Excel quest (The Merchant’s Ledger): game mechanics evaluated by the engine; the boss gates the Great Hall",
       "status": "pass",
-      "ms": 79390
+      "ms": 96701
     },
     {
       "id": "P9-6d",
       "title": "KPI dashboard: drag-and-drop and keyboard alternative, evaluated by the engine",
       "status": "pass",
-      "ms": 26546
+      "ms": 29124
     },
     {
       "id": "L2",
       "title": "Modelling lab: build, get specific feedback, repair, and pass with real rules",
       "status": "pass",
-      "ms": 42527
+      "ms": 45553
     },
     {
       "id": "P9-7/8",
       "title": "Rewards come from the engine and persist; destination states update after refresh",
       "status": "pass",
-      "ms": 15801
+      "ms": 16888
     },
     {
       "id": "A13/I",
       "title": "Progress & settings: real data, text size, motion, graphics",
       "status": "pass",
-      "ms": 15261
+      "ms": 16471
     },
     {
       "id": "L3",
       "title": "Learning path: eight modules from real data, planned modules clearly labelled",
       "status": "pass",
-      "ms": 5854
+      "ms": 7052
     },
     {
       "id": "A15a",
       "title": "Graphics off: 2D fallback map, quests still playable",
       "status": "pass",
-      "ms": 809
+      "ms": 1624
     },
     {
       "id": "A12",
       "title": "Reset progress asks for confirmation and erases everything",
       "status": "pass",
-      "ms": 5251
+      "ms": 4298
     },
     {
       "id": "A13b",
       "title": "Keyboard: skip link and answering a question without a mouse",
       "status": "pass",
-      "ms": 9621
+      "ms": 12598
     },
     {
       "id": "A15b",
       "title": "Island model fails to load: clear error, retry, and quests still work",
       "status": "pass",
-      "ms": 10601
+      "ms": 11017
     },
     {
       "id": "A15c",
       "title": "WebGL unavailable: 2D map and the first quest is fully playable",
       "status": "pass",
-      "ms": 15409
+      "ms": 16998
     },
     {
       "id": "L4",
       "title": "A save from the previous release resumes on the right step after the lesson update",
       "status": "pass",
-      "ms": 449
+      "ms": 439
     },
     {
       "id": "A16/H",
       "title": "Mobile layout: home, map bottom sheet, quest panel; no sideways scroll; touch targets",
       "status": "pass",
-      "ms": 24011
+      "ms": 30869
     },
     {
       "id": "L5",
       "title": "Mobile: theory card and modelling lab work with taps only (no dragging)",
       "status": "pass",
-      "ms": 23041
+      "ms": 27493
     },
     {
       "id": "A1b",
@@ -211,13 +211,13 @@
     }
   ],
   "perf": {
-    "homeInteractiveMs": 257,
-    "islandLowMs": 1099,
+    "homeInteractiveMs": 271,
+    "islandLowMs": 1201,
     "resources": [
       {
-        "file": "assets/index-Dk5iCiOJ.js",
-        "kb": 204,
-        "ms": 21
+        "file": "assets/index-DNVshK7r.js",
+        "kb": 208,
+        "ms": 19
       },
       {
         "file": "assets/react-ChtNbmH8.js",
@@ -225,59 +225,59 @@
         "ms": 19
       },
       {
-        "file": "assets/index-Bj4_Ujlq.css",
-        "kb": 64,
-        "ms": 18
+        "file": "assets/index-ovv3DYp6.css",
+        "kb": 65,
+        "ms": 17
       },
       {
         "file": "data/world.json",
         "kb": 2,
-        "ms": 4
+        "ms": 9
       },
       {
         "file": "quests/missing-signal.json",
         "kb": 21,
-        "ms": 19
+        "ms": 6
       },
       {
         "file": "quests/the-ledger.json",
         "kb": 18,
-        "ms": 19
+        "ms": 15
       },
       {
         "file": "quests/broken-tally.json",
         "kb": 13,
-        "ms": 19
+        "ms": 15
       },
       {
         "file": "quests/market-ledger.json",
-        "kb": 46,
-        "ms": 21
+        "kb": 47,
+        "ms": 15
       },
       {
         "file": "quests/great-hall-dashboard.json",
         "kb": 14,
-        "ms": 23
+        "ms": 16
       },
       {
         "file": "quests/star-chart.json",
         "kb": 18,
-        "ms": 23
+        "ms": 18
       },
       {
         "file": "data/curriculum.json",
         "kb": 4,
-        "ms": 4
+        "ms": 3
       },
       {
         "file": "data/codex.json",
         "kb": 5,
-        "ms": 9
+        "ms": 3
       },
       {
         "file": "assets/WorldRenderer-Dspk-a0w.js",
         "kb": 119,
-        "ms": 16
+        "ms": 15
       },
       {
         "file": "assets/three-BjfqoMM4.js",
@@ -287,11 +287,11 @@
       {
         "file": "models/island-low.glb",
         "kb": 615,
-        "ms": 10
+        "ms": 15
       }
     ],
     "desktopStats": {
-      "fps": 4,
+      "fps": 2,
       "drawCalls": 57,
       "triangles": 244032,
       "geometries": 31,
@@ -326,9 +326,9 @@
         }
       ],
       "camera": [
-        -353,
+        -351,
         330,
-        435
+        436
       ],
       "character": null,
       "mode": "overview",
@@ -349,7 +349,7 @@
       ]
     },
     "mobileStats": {
-      "fps": 0,
+      "fps": 4,
       "drawCalls": 43,
       "triangles": 242984,
       "geometries": 31,
@@ -384,9 +384,9 @@
         }
       ],
       "camera": [
-        -323,
+        -324,
         330,
-        458
+        457
       ],
       "character": null,
       "mode": "overview",
