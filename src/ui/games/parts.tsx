@@ -165,29 +165,32 @@ export function FormulaBuilder({ id, tokens, value, onChange, disabled, cell, la
   );
 }
 
-/** Stake XP on getting the step right first time. Skill-based: no luck decides the payout. */
+/**
+ * Stake silver on getting the step right first time. An optional side-game:
+ * silver never changes XP, medals or unlocks, and no luck decides the payout.
+ */
 export function WagerPanel({ max, stake, locked, onStake, firstTryRule }: {
   max: number; stake: number; locked: boolean; onStake: (n: number) => void; firstTryRule: string;
 }) {
   const presets = useMemo(() => [...new Set([0, Math.floor(max / 4), Math.floor(max / 2), max])].filter((n) => n >= 0), [max]);
   if (max <= 0 && !stake) {
-    return <p className="wager wager--empty">🪙 Earn XP in earlier rounds to stake on this one.</p>;
+    return <p className="wager wager--empty">🪙 Earn silver in earlier rounds to stake on this one (optional).</p>;
   }
   return (
     <div className={`wager${stake ? ' wager--live' : ''}`} role="group" aria-labelledby="wager-title">
-      <p id="wager-title" className="wager-title"><span aria-hidden="true">🪙 </span>Stake XP <span className="wager-rule">— win your stake if you’re right {firstTryRule}; lose it otherwise.</span></p>
+      <p id="wager-title" className="wager-title"><span aria-hidden="true">🪙 </span>Optional: stake silver <span className="wager-rule">— win your stake if you’re right {firstTryRule}; lose it otherwise. Silver is a side-game: it never changes your XP, medal or unlocks.</span></p>
       {locked ? (
-        <p className="wager-locked">{stake ? <>Staked <strong>{stake} XP</strong>. Locked in.</> : 'Playing it safe this round.'}</p>
+        <p className="wager-locked">{stake ? <>Staked <strong>{stake} silver</strong>. Locked in.</> : 'No stake this round.'}</p>
       ) : (
         <div className="wager-row">
           {presets.map((n) => (
             <button key={n} type="button" className={`chip chip--stake${stake === n ? ' is-on' : ''}`} aria-pressed={stake === n} onClick={() => onStake(n)}>
-              {n === 0 ? 'Play it safe' : `${n} XP`}
+              {n === 0 ? 'No stake' : `${n} silver`}
             </button>
           ))}
           <label className="wager-custom">
-            <span className="sr-only">Exact stake in XP, up to {max}</span>
-            <input type="range" min={0} max={max} value={stake} onChange={(e) => onStake(Number(e.target.value))} aria-valuetext={`${stake} XP`} />
+            <span className="sr-only">Exact stake in silver, up to {max}</span>
+            <input type="range" min={0} max={max} value={stake} onChange={(e) => onStake(Number(e.target.value))} aria-valuetext={`${stake} silver`} />
           </label>
         </div>
       )}

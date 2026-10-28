@@ -1,16 +1,16 @@
 import { useGame } from '../../app/game';
 import { navigate } from '../../app/router';
-import { bossScore, computeMedal, conceptReport, isChallenge, isFirstTry, levelFor, maxXp, resultFor, restoreRun, skillReport, stakesPlaced, wagerNet, type Medal, type SkillStatus } from '../../engine/game-engine';
+import { computeMedal, isLegacyRun, computeSilver, conceptReport, isChallenge, isFirstTry, levelFor, masteryEvidence, nextMedalHint, resultFor, restoreRun, skillReport, stakesPlaced, wagerNet, type Medal, type SkillStatus } from '../../engine/game-engine';
 import { questRecord, totalXp, withReplay } from '../../engine/progress-store';
 import { destinationForQuest, nextQuestAt } from '../../engine/progression';
 import { Stars } from '../Stars';
 
 const SKILL_ICON: Record<SkillStatus, string> = { demonstrated: '✓', 'with-hints': '✓', reviewed: '💡', 'not-yet': '○' };
 const MEDAL_TEXT: Record<Medal, { icon: string; name: string; why: string }> = {
-  gold: { icon: '🥇', name: 'Gold medal', why: 'Pot of at least 85% of the maximum, a strong audit and a stake placed with confidence.' },
-  silver: { icon: '🥈', name: 'Silver medal', why: 'Pot of at least 65% of the maximum. For gold: master the audit (85%+) and stake XP on what you know.' },
-  bronze: { icon: '🥉', name: 'Bronze medal', why: 'Audit passed. Fewer retries and hints raise your pot towards silver and gold.' },
-  none: { icon: '🛡️', name: 'No medal yet', why: 'The audit score was below the pass mark. Practise the rounds below, then replay the quest: the audit uses new figures each time.' },
+  gold: { icon: '🥇', name: 'Gold medal', why: 'Mastery shown: a strong final challenge, most rounds right first time and no answers revealed.' },
+  silver: { icon: '🥈', name: 'Silver medal', why: 'Final challenge passed and most rounds right first time.' },
+  bronze: { icon: '🥉', name: 'Bronze medal', why: 'Final challenge passed: the next destination is open.' },
+  none: { icon: '🛡️', name: 'No medal yet', why: 'The final challenge score was below the pass mark. Practise the rounds below, then replay the quest: the audit uses new figures each time.' },
 };
 
 export function CompleteScreen({ questId, feedbackUrl }: { questId: string; feedbackUrl: string }) {
@@ -30,10 +30,14 @@ export function CompleteScreen({ questId, feedbackUrl }: { questId: string; feed
 
   const unlocked = (summary?.unlocked ?? []).map((id) => world.destinations.find((d) => d.id === id)!).filter(Boolean);
   const isGame = quest.scenes.some((sc) => isChallenge(sc) && Boolean(sc.mechanic));
-  const medal: Medal = summary?.medal ?? computeMedal(quest, run);
-  const mastery = summary?.mastery ?? bossScore(quest, run);
+  // A run saved by an earlier version of this quest has no results for the new
+  // rounds; it keeps its completion and unlocks but cannot be scored for a medal.
+  const legacy = isGame && record.completed && isLegacyRun(quest, run);
+  const medal: Medal = summary?.medal ?? (legacy ? record.bestMedal : computeMedal(quest, run));
+  const evidence = masteryEvidence(quest, run);
   const threshold = quest.mastery?.threshold ?? 0.7;
   const net = wagerNet(quest, run);
+  const hint = legacy ? '' : nextMedalHint(quest, run);
   const concepts = conceptReport(quest, run);
   const rounds = quest.scenes.filter(isChallenge);
   // Suggest the next playable quest anywhere on the island.
@@ -47,17 +51,28 @@ export function CompleteScreen({ questId, feedbackUrl }: { questId: string; feed
         <h1 id="complete-title">{quest.completionTitle || 'Quest complete'}</h1>
         <p className="lede">You finished “{quest.title}”.</p>
 
-        {isGame && (
+        {isGame && legacy && (
+          <div className="medal-card medal--none" role="status">
+            <span className="medal-icon" aria-hidden="true">📜</span>
+            <div>
+              <p className="medal-name">Completed in an earlier version</p>
+              <p>You finished the previous version of this quest, so everything it unlocked stays open. The quest has been rebuilt as a game with a final challenge: replay it to earn a medal.</p>
+            </div>
+          </div>
+        )}
+        {isGame && !legacy && (
           <div className={`medal-card medal--${medal}`} role="status">
             <span className="medal-icon" aria-hidden="true">{MEDAL_TEXT[medal].icon}</span>
             <div>
               <p className="medal-name">{MEDAL_TEXT[medal].name}{record.bestMedal !== 'none' && record.bestMedal !== medal ? ` · best so far: ${record.bestMedal}` : ''}</p>
               <p>{MEDAL_TEXT[medal].why}</p>
-              {mastery !== null && (
-                <p className="medal-mastery">
-                  Audit (boss) mastery: <strong>{Math.round(mastery * 100)}%</strong> — pass mark {Math.round(threshold * 100)}%.
-                  {' '}Pot: {record.lastXp} of {maxXp(quest)} XP{stakesPlaced(quest, run) ? ` · stakes ${net >= 0 ? 'won' : 'lost'} ${Math.abs(net)} XP` : ' · no stakes placed'}.
-                </p>
+              <p className="medal-mastery">
+                Final challenge: <strong>{Math.round((evidence.boss ?? 0) * 100)}%</strong> (pass mark {Math.round(threshold * 100)}%) ·
+                {' '}right first time: <strong>{evidence.firstTime} of {evidence.rounds}</strong> rounds · answers revealed: <strong>{evidence.revealed}</strong>.
+              </p>
+              {hint && <p className="medal-next">{hint}</p>}
+              {stakesPlaced(quest, run) > 0 && (
+                <p className="medal-purse">🪙 Trader's purse: {computeSilver(quest, run)} silver (stakes {net >= 0 ? 'won' : 'lost'} {Math.abs(net)}). Silver is a side-game and never affects medals.</p>
               )}
             </div>
           </div>

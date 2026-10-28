@@ -302,44 +302,91 @@ describe('Boss mission with data variants', () => {
   });
 });
 
-describe('XP wagers and medals', () => {
-  test('stakes are capped at half the pot so far, and only before the first attempt', () => {
+/**
+ * Play the whole quest: `plan` says how many wrong attempts to make on a step
+ * (or 'reveal'), `stakes` which steps to stake the maximum on.
+ */
+function playRun(seed: number, plan: Record<string, number | 'reveal'> = {}, stakes: string[] = []): Run {
+  let r = engine.createRun(q, seed);
+  while (!r.completed) {
+    const scene = engine.currentScene(q, r);
+    if (scene.type === 'wheel') r = engine.spinWheel(q, r);
+    if (engine.isChallenge(scene)) {
+      if (stakes.includes(scene.id)) r = engine.placeWager(q, r, engine.maxStake(q, r));
+      const p = plan[scene.id] ?? 0;
+      const misses = p === 'reveal' ? engine.revealAfter(scene) : p;
+      for (let i = 0; i < misses; i += 1) r = engine.submitAnswer(q, r, wrongAnswer(scene, r)).run;
+      r = p === 'reveal' ? engine.revealAnswer(q, r) : engine.submitAnswer(q, r, engine.correctAnswer(scene, r)!).run;
+      expect(engine.resultFor(r, scene.id).solved, scene.id).toBe(true);
+    }
+    r = engine.advance(q, r);
+  }
+  return r;
+}
+
+describe('silver purse (optional wagers) is separate from XP, medals and unlocks', () => {
+  test('stakes are capped at half the silver purse so far, and only before the first attempt', () => {
     const run = goTo('rune-max');
-    const pot = engine.potBefore(q, run, 'rune-max');
-    expect(pot).toBe(engine.computeXp(q, run));
-    expect(engine.maxStake(q, run)).toBe(Math.floor(pot / 2));
+    const purse = engine.purseBefore(q, run, 'rune-max');
+    expect(purse).toBe(engine.computeXp(q, run)); // no stakes yet: silver mirrors XP earned
+    expect(engine.maxStake(q, run)).toBe(Math.floor(purse / 2));
     const staked = engine.placeWager(q, run, 10_000);
     expect(staked.wagers!['rune-max']).toBe(engine.maxStake(q, run));
     const tried = engine.submitAnswer(q, staked, { guess: 'SUM' }).run;
     expect(engine.placeWager(q, tried, 1)).toBe(tried); // locked after an attempt
-    // Steps without a wager flag can't be staked on.
     const other = goTo('total');
     expect(engine.maxStake(q, other)).toBe(0);
     expect(engine.placeWager(q, other, 5)).toBe(other);
   });
-  test('a correct first-time answer wins the stake; a miss loses it; the pot never drops below the floor', () => {
+  test('winning or losing a stake changes silver only — XP is identical', () => {
     const run = goTo('rune-max');
     const stake = engine.maxStake(q, run);
     const won = engine.submitAnswer(q, engine.placeWager(q, run, stake), { guess: 'MAX' }).run;
+    const plain = engine.submitAnswer(q, run, { guess: 'MAX' }).run;
     expect(engine.wagerNet(q, won)).toBe(stake);
-    expect(engine.computeXp(q, won)).toBe(engine.baseXp(q, won) + stake);
+    expect(engine.computeXp(q, won)).toBe(engine.computeXp(q, plain));
+    expect(engine.computeSilver(q, won)).toBe(engine.computeSilver(q, plain) + stake);
 
     let lost = engine.placeWager(q, run, stake);
-    for (const g of ['SUM', 'MIN', 'ABS', 'DAY']) lost = engine.submitAnswer(q, lost, { guess: g }).run; // 4 misses: beyond par
+    for (const g of ['SUM', 'MIN', 'ABS', 'DAY']) lost = engine.submitAnswer(q, lost, { guess: g }).run; // beyond par
     lost = engine.submitAnswer(q, lost, { guess: 'MAX' }).run;
     expect(engine.wagerNet(q, lost)).toBe(-stake);
-    expect(engine.computeXp(q, lost)).toBe(Math.max(Math.ceil(engine.baseXp(q, lost) / 2), engine.baseXp(q, lost) - stake));
-    expect(engine.computeXp(q, lost)).toBeGreaterThanOrEqual(Math.ceil(engine.baseXp(q, lost) / 2));
+    expect(engine.computeXp(q, lost)).toBe(engine.baseXp(q, lost));
+    expect(engine.computeSilver(q, lost)).toBeGreaterThanOrEqual(Math.ceil(engine.baseXp(q, lost) / 2));
   });
-  test('gold needs a stake and strong boss mastery; the safe path tops out at silver', () => {
-    const safe = finish(engine.createRun(q, 3));
-    expect(engine.computeMedal(q, safe)).toBe('silver');
-    let bold = goTo('rune-max', 3);
-    bold = engine.placeWager(q, bold, engine.maxStake(q, bold));
-    bold = finish(bold);
-    expect(engine.stakesPlaced(q, bold)).toBe(1);
-    expect(engine.computeMedal(q, bold)).toBe('gold');
-    expect(engine.MEDAL_RANK.gold).toBeGreaterThan(engine.MEDAL_RANK.silver);
+});
+
+describe('medals come from demonstrated mastery only', () => {
+  test('a perfect run earns gold without any stake', () => {
+    const run = playRun(3);
+    expect(engine.stakesPlaced(q, run)).toBe(0);
+    expect(engine.computeMedal(q, run)).toBe('gold');
+    expect(engine.nextMedalHint(q, run)).toBe('');
+  });
+  test('the same play earns the same medal with or without stakes, won or lost', () => {
+    const plan = { 'rune-max': 4, 'find-cell': 1 }; // rune-max beyond par → its stake is lost
+    const safe = playRun(5, plan);
+    const bold = playRun(5, plan, ['rune-max', 'rune-wheel', 'restock']);
+    expect(engine.wagerNet(q, bold)).not.toBe(0);
+    expect(engine.computeMedal(q, bold)).toBe(engine.computeMedal(q, safe));
+    expect(engine.computeXp(q, bold)).toBe(engine.computeXp(q, safe));
+  });
+  test('any revealed answer rules out gold; many retries drop to bronze; a weak boss earns nothing', () => {
+    expect(engine.computeMedal(q, playRun(7, { 'error-runes': 'reveal' }))).toBe('silver');
+    const retries = Object.fromEntries(['find-cell', 'row-revenue', 'total', 'average-price', 'highest-price', 'absolute', 'profit-fix'].map((id) => [id, 1]));
+    const bronze = playRun(7, retries);
+    expect(engine.computeMedal(q, bronze)).toBe('bronze');
+    expect(engine.nextMedalHint(q, bronze)).toMatch(/for silver/);
+    const weak = playRun(7, { 'audit-revenue': 'reveal', 'audit-tax': 'reveal', 'audit-discrepancy': 'reveal' });
+    expect(engine.isMastered(q, weak)).toBe(false);
+    expect(engine.computeMedal(q, weak)).toBe('none');
+    expect(engine.nextMedalHint(q, weak)).toMatch(/final challenge/);
+  });
+  test('boss retries cost gold but not the unlock', () => {
+    const run = playRun(9, { 'audit-revenue': 1, 'audit-tax': 1 });
+    expect(engine.bossScore(q, run)).toBeCloseTo((0.6 + 0.6 + 1 + 1 + 1) / 5);
+    expect(engine.isMastered(q, run)).toBe(true);
+    expect(engine.computeMedal(q, run)).toBe('silver');
   });
   test('wagers survive save and reload; tampered values are cleaned', () => {
     const run = engine.placeWager(q, goTo('rune-max'), 5);

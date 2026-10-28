@@ -34,6 +34,8 @@ export interface QuestRecord {
   /** Best boss mastery (0–1) across runs; null when the quest has no boss or it was never scored. */
   bestMastery: number | null;
   bestMedal: Medal;
+  /** Best silver purse (the optional wager side-game). Affects nothing else. */
+  bestSilver: number;
 }
 
 export interface Progress {
@@ -63,7 +65,7 @@ export function defaultProgress(): Progress {
 }
 
 export function emptyRecord(): QuestRecord {
-  return { run: null, runXp: 0, lastRun: null, lastXp: 0, bestXp: 0, bestStars: 0, completed: false, completions: 0, mastered: false, bestMastery: null, bestMedal: 'none' };
+  return { run: null, runXp: 0, lastRun: null, lastXp: 0, bestXp: 0, bestStars: 0, completed: false, completions: 0, mastered: false, bestMastery: null, bestMedal: 'none', bestSilver: 0 };
 }
 
 function clampInt(value: unknown, max = MAX_XP): number {
@@ -117,6 +119,7 @@ function sanitizeQuestRecord(id: string, raw: unknown): QuestRecord | null {
     mastered: typeof r.mastered === 'boolean' ? r.mastered && r.completed === true : r.completed === true,
     bestMastery: typeof r.bestMastery === 'number' && r.bestMastery >= 0 && r.bestMastery <= 1 ? r.bestMastery : null,
     bestMedal: (MEDALS as string[]).includes(r.bestMedal as string) ? (r.bestMedal as Medal) : 'none',
+    bestSilver: clampInt(r.bestSilver),
   };
 }
 
@@ -276,6 +279,7 @@ export interface CompletionResult {
   mastered?: boolean;
   mastery?: number | null;
   medal?: Medal;
+  silver?: number;
 }
 
 export function withCompletion(progress: Progress, run: Run, xp: number, stars: number, achievementId?: string, result: CompletionResult = {}): Progress {
@@ -299,6 +303,7 @@ export function withCompletion(progress: Progress, run: Run, xp: number, stars: 
       mastered: record.mastered || mastered,
       bestMastery: mastery === null ? record.bestMastery : Math.max(record.bestMastery ?? 0, mastery),
       bestMedal: MEDAL_RANK[medal] > MEDAL_RANK[record.bestMedal] ? medal : record.bestMedal,
+      bestSilver: Math.max(record.bestSilver, clampInt(result.silver ?? 0)),
     },
   };
   const achievements = achievementId && !progress.achievements.includes(achievementId)

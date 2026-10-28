@@ -225,3 +225,18 @@
   .workshop-stage { grid-template-columns: 1fr; }
   .reaction { width: 5.5rem; justify-self: end; margin-top: calc(-1 * var(--space-2)); }
 }
+
+/* Trader's purse (optional wager side-game) and medal guidance */
+.purse-chip { display: inline-flex; align-items: center; gap: 4px; padding: 0.1rem 0.6rem; border-radius: 999px; background: rgba(192, 138, 26, 0.25); color: #ffe3a3; font-weight: 800; font-size: var(--step--1); }
+.medal-next { margin: var(--space-2) 0 0; color: #ffe3a3; font-weight: 600; }
+.medal-purse { margin: var(--space-2) 0 0; color: var(--mist-muted); font-size: var(--step--1); }
+
+/* Keep the round track and purse in view while playing on wide screens. */
+@media (min-width: 900px) {
+  .quest-head:has(.quest-hud) { position: sticky; top: 0; z-index: 5; background: var(--night-900, #0f1420); padding-block: var(--space-2); }
+}
+.phase-badge--round { background: rgba(212, 160, 60, 0.18); }
+@media (min-width: 900px) {
+  /* Focus and scroll targets must land below the pinned HUD, not under it. */
+  .quest-panel:has(.quest-hud) .scene, .quest-panel:has(.quest-hud) .scene * { scroll-margin-top: 11rem; }
+}

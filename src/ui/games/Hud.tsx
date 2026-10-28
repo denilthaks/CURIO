@@ -1,4 +1,4 @@
-// In-quest HUD: the round track (runes instead of a progress bar), the XP pot,
+// In-quest HUD: the round track (runes instead of a progress bar), XP and the optional silver purse,
 // and the Codex — short cards from the Excel Encyclopedia, opened on demand.
 
 import { useEffect, useRef } from 'react';
@@ -24,20 +24,22 @@ export function RoundTrack({ quest, run }: { quest: Quest; run: Run }) {
 }
 
 export function PotMeter({ quest, run }: { quest: Quest; run: Run }) {
-  const pot = engine.computeXp(quest, run);
+  const xp = engine.computeXp(quest, run);
   const max = engine.maxXp(quest);
+  const silver = engine.computeSilver(quest, run);
   const net = engine.wagerNet(quest, run);
-  const pct = Math.min(100, Math.round((pot / Math.max(1, max)) * 100));
+  const staking = quest.scenes.some((s) => engine.isChallenge(s) && s.wager);
+  const pct = Math.min(100, Math.round((xp / Math.max(1, max)) * 100));
   return (
-    <div className="pot" role="status" aria-live="polite" aria-label={`XP pot: ${pot} of ${max}${net ? `, wagers ${net > 0 ? 'won' : 'lost'} ${Math.abs(net)}` : ''}`}>
-      <span className="pot-coin" aria-hidden="true">🪙</span>
-      <span className="pot-value">{pot}</span>
-      <span className="pot-bar" aria-hidden="true">
-        <span style={{ width: `${pct}%` }} />
-        <i className="pot-mark pot-mark--silver" style={{ left: `${engine.MEDAL_RULES.silver * 100}%` }} />
-        <i className="pot-mark pot-mark--gold" style={{ left: `${engine.MEDAL_RULES.gold * 100}%` }} />
-      </span>
-      {net !== 0 && <span className={`pot-net ${net > 0 ? 'is-up' : 'is-down'}`} aria-hidden="true">{net > 0 ? `+${net}` : net}</span>}
+    <div className="pot" role="status" aria-live="polite" aria-label={`${xp} of ${max} XP earned${staking ? `. Trader's purse: ${silver} silver` : ''}`}>
+      <span className="pot-coin" aria-hidden="true">✨</span>
+      <span className="pot-value">{xp}</span>
+      <span className="pot-bar" aria-hidden="true"><span style={{ width: `${pct}%` }} /></span>
+      {staking && (
+        <span className="purse-chip" aria-hidden="true" title="Trader's purse: the optional wager game. It never changes XP, medals or unlocks.">
+          🪙 {silver}{net !== 0 && <span className={`pot-net ${net > 0 ? 'is-up' : 'is-down'}`}>{net > 0 ? `+${net}` : net}</span>}
+        </span>
+      )}
     </div>
   );
 }

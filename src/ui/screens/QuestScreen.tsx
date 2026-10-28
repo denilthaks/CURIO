@@ -5,7 +5,7 @@ import { announce, focusElement } from '../../app/a11y';
 import * as engine from '../../engine/game-engine';
 import { questRecord, totalXp, withCompletion, withConcepts, withLessonRead, withRun, type Progress } from '../../engine/progress-store';
 import { destinationForQuest, moduleForQuest, newlyUnlocked } from '../../engine/progression';
-import type { Answer, Outcome, Run, Scene } from '../../engine/types';
+import type { Answer, Outcome, Quest, Run, Scene } from '../../engine/types';
 import type { Pose } from '../../world/characters';
 import { newSeed } from '../../engine/games/rng';
 import { dayNumber, recordConcepts, reviewWeight } from '../../engine/games/mastery';
@@ -30,6 +30,15 @@ export function recordStep(progress: Progress, quest: import('../../engine/types
     firstTry: engine.isFirstTry(scene, r), revealed: r.revealed, wrongAttempts: Math.max(0, r.attempts - engine.parFor(scene)), context, day: dayNumber(),
   });
   return withConcepts(progress, concepts);
+}
+
+/** In game quests a step is a round (or a stage of the boss), not a course phase. */
+function GameBadge({ quest, scene }: { quest: Quest; scene: Scene }) {
+  if (!engine.isChallenge(scene)) return null;
+  const rounds = quest.scenes.filter((s) => engine.isChallenge(s) && !s.boss);
+  const boss = quest.scenes.filter((s) => engine.isChallenge(s) && s.boss);
+  const text = scene.boss ? `⚔️ Boss · stage ${boss.indexOf(scene) + 1} of ${boss.length}` : `ᚱ Round ${rounds.indexOf(scene) + 1} of ${rounds.length}`;
+  return <p className={`phase-badge phase-badge--${scene.boss ? 'assessment' : 'round'}`}>{text}</p>;
 }
 
 /** Where a step sits in the learning cycle, shown as a badge. */
@@ -161,7 +170,8 @@ export function QuestScreen({ questId, onPose, onWorld, reducedMotion = false }:
     const mastery = engine.bossScore(quest, after);
     const medal = engine.computeMedal(quest, after);
     // The badge is earned on mastery, not on simply reaching the end.
-    const nextProgress = withCompletion(before, after, xp, stars, mastered ? quest.badge?.id : undefined, { mastered, mastery, medal });
+    const silver = engine.computeSilver(quest, after);
+    const nextProgress = withCompletion(before, after, xp, stars, mastered ? quest.badge?.id : undefined, { mastered, mastery, medal, silver });
     // XP shows live during a run, so measure the gain against the total as it
     // stood before this run: other quests plus this quest's previous best.
     const baseline = totalXp(before) - Math.max(record.bestXp, record.runXp) + record.bestXp;
@@ -183,9 +193,9 @@ export function QuestScreen({ questId, onPose, onWorld, reducedMotion = false }:
 
   const stake = run.wagers?.[scene.id] ?? 0;
   const settled = engine.wagerResult(rawScene, run);
-  const note = stake && result.solved ? (settled > 0 ? `🪙 Stake won: +${settled} XP` : `🪙 Stake lost: ${settled} XP (${engine.parFor(rawScene) > 1 ? `not solved within ${engine.parFor(rawScene)} guesses` : 'not right first time'})`)
-    : stake && result.attempts >= engine.parFor(rawScene) ? `🪙 Your ${stake} XP stake is lost — but solving this still earns XP.`
-    : stake && result.attempts > 0 ? `🪙 Your ${stake} XP stake is still in play: solve within ${engine.parFor(rawScene)} guesses to win it.` : undefined;
+  const note = stake && result.solved ? (settled > 0 ? `🪙 Stake won: +${settled} silver` : `🪙 Stake lost: ${settled} silver (${engine.parFor(rawScene) > 1 ? `not solved within ${engine.parFor(rawScene)} guesses` : 'not right first time'})`)
+    : stake && result.attempts >= engine.parFor(rawScene) ? `🪙 Your ${stake}-silver stake is lost. Solving this still earns its XP.`
+    : stake && result.attempts > 0 ? `🪙 Your ${stake}-silver stake is still in play: solve within ${engine.parFor(rawScene)} guesses to win it.` : undefined;
   const props: SceneProps = { quest, scene, result, outcome: v.outcome, tried: v.tried, inspected: run.inspected, onCheck, onReveal, onNext, onInspect, invalid: v.invalid, note };
   const gameProps = { ...props, run, reducedMotion, onSpin };
   const focusConcepts = engine.isChallenge(rawScene) ? engine.conceptsFor(rawScene, run) : [];
@@ -249,7 +259,9 @@ export function QuestScreen({ questId, onPose, onWorld, reducedMotion = false }:
         </header>
         <div ref={stageRef}>
           <article key={scene.id} className={`scene scene--${scene.type} scene--phase-${phase.id}${engine.isChallenge(scene) && scene.boss ? ' scene--boss' : ''} parchment`}>
-            <p className={`phase-badge phase-badge--${phase.id}`}><span aria-hidden="true">{engine.isChallenge(scene) && scene.boss ? '⚔️ ' : `${phase.icon} `}</span>{engine.isChallenge(scene) && scene.boss ? 'Boss · the audit' : phase.label}</p>
+            {gameQuest ? <GameBadge quest={quest} scene={scene} /> : (
+              <p className={`phase-badge phase-badge--${phase.id}`}><span aria-hidden="true">{engine.isChallenge(scene) && scene.boss ? '⚔️ ' : `${phase.icon} `}</span>{engine.isChallenge(scene) && scene.boss ? 'Boss · the audit' : phase.label}</p>
+            )}
             <h2 className="scene-title" tabIndex={-1}>{scene.title}</h2>
             {engine.isChallenge(scene) && scene.wager && (
               <WagerPanel

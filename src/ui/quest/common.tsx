@@ -14,7 +14,7 @@ export interface SceneProps<S extends Scene = Scene> {
   onNext: () => void;
   onInspect: (id: string) => void;
   invalid: string | null;
-  /** Extra line shown with the result (e.g. how an XP stake settled). */
+  /** Extra line shown with the result (e.g. how a silver stake settled). */
   note?: ReactNode;
 }
 

@@ -23,7 +23,10 @@ export function WorkshopView(props: GameProps<WorkshopScene>) {
   const [formula, setFormula] = useState('');
   const solved = result.solved;
   const shown = solved ? scene.solution : formula;
-  const values = useMemo(() => previewColumn(shown, scene.columns, scene.rows, scene.target, scene.fillDownTo), [shown, scene]);
+  // In the boss the ledger stays blank until the answer is checked: an
+  // assessment shouldn't allow free trial-and-error with live results.
+  const live = !scene.boss || solved;
+  const values = useMemo(() => (live ? previewColumn(shown, scene.columns, scene.rows, scene.target, scene.fillDownTo) : {}), [live, shown, scene]);
   const state = reactionState(solved, result.revealed, Boolean(outcome && !outcome.correct));
   return (
     <GameFrame mechanic={scene.mechanic ?? 'Ledger Workshop'} icon="🛠️">
@@ -35,7 +38,7 @@ export function WorkshopView(props: GameProps<WorkshopScene>) {
       <form className="challenge" noValidate onSubmit={(e) => { e.preventDefault(); onCheck({ formula }); }}>
         <p className="prompt" id={`ws-prompt-${scene.id}`}>{scene.prompt}</p>
         <FormulaBuilder id={`ws-${scene.id}`} tokens={scene.tokens} value={shown} onChange={setFormula} disabled={solved} cell={scene.target} label={scene.prompt} />
-        {scene.fillDownTo && <p className="hint">Your formula in {scene.target} is filled down to {scene.fillDownTo}. The grid previews what each row would show — checking is what counts.</p>}
+        {scene.fillDownTo && <p className="hint">Your formula in {scene.target} is filled down to {scene.fillDownTo}.{!scene.boss ? ' The grid previews what each row would show — checking is what counts.' : ' No preview in the audit: Hrolf checks it when you write it in.'}</p>}
         <InvalidMessage text={invalid} />
         {!solved && <Actions><button type="submit" className="btn btn-primary btn-lg">Write it in the ledger</button></Actions>}
       </form>
@@ -52,7 +55,8 @@ export function RepairView(props: GameProps<RepairScene>) {
   const [formula, setFormula] = useState(scene.broken);
   const solved = result.solved;
   const broken = useMemo(() => previewColumn(scene.broken, scene.columns, scene.rows, scene.target, scene.fillDownTo), [scene]);
-  const fixed = useMemo(() => previewColumn(solved ? scene.solution : formula, scene.columns, scene.rows, scene.target, scene.fillDownTo), [formula, scene, solved]);
+  const live = !scene.boss || solved;
+  const fixed = useMemo(() => (live ? previewColumn(solved ? scene.solution : formula, scene.columns, scene.rows, scene.target, scene.fillDownTo) : {}), [live, formula, scene, solved]);
   const wrongCells = Object.entries(broken).filter(([cell, v]) => scene.expected[cell] !== undefined && v !== String(Math.round(scene.expected[cell] * 100) / 100)).map(([c]) => c);
   return (
     <GameFrame mechanic={scene.mechanic ?? 'Repair Mission'} icon="🔧">
@@ -79,7 +83,7 @@ export function RepairView(props: GameProps<RepairScene>) {
           <span className="fx" aria-hidden="true">fx</span>
           <input id={`fix-${scene.id}`} className="formula-input" value={solved ? scene.solution : formula} readOnly={solved} onChange={(e) => setFormula(e.target.value)} spellCheck={false} autoCapitalize="off" autoCorrect="off" />
         </div>
-        <LedgerGrid columns={scene.columns} rows={scene.rows} target={scene.target} fillDownTo={scene.fillDownTo} values={fixed} solved={solved && !result.revealed} label="Ledger with your repair (preview)" />
+        <LedgerGrid columns={scene.columns} rows={scene.rows} target={scene.target} fillDownTo={scene.fillDownTo} values={fixed} solved={solved && !result.revealed} label={live ? 'Ledger with your repair (preview)' : 'Ledger (no preview in the audit)'} />
         <InvalidMessage text={invalid} />
         {!solved && <Actions><button type="submit" className="btn btn-primary btn-lg">Repair the ledger</button></Actions>}
       </form>
@@ -228,7 +232,8 @@ export function WheelView(props: GameProps<WheelScene>) {
           ) : (
             <>
               <p className="prompt">{challenge.prompt}</p>
-              <LedgerGrid columns={challenge.columns} rows={challenge.rows} target={challenge.target} values={previewColumn(solved ? challenge.solution : formula, challenge.columns, challenge.rows, challenge.target)} label="Ledger" />
+              <LedgerGrid columns={challenge.columns} rows={challenge.rows} target={challenge.target} fillDownTo={challenge.fillDownTo} values={previewColumn(solved ? challenge.solution : formula, challenge.columns, challenge.rows, challenge.target, challenge.fillDownTo)} label="Ledger" />
+              {challenge.fillDownTo && <p className="hint">Your formula in {challenge.target} is filled down to {challenge.fillDownTo}.</p>}
               <div className="formula-bar">
                 <span className="cell-name" aria-hidden="true">{challenge.target}</span>
                 <span className="fx" aria-hidden="true">fx</span>

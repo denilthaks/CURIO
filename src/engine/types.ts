@@ -189,8 +189,8 @@ export interface RunewordScene extends ChallengeBase {
 
 export interface WheelChoice { kind: 'choice'; prompt: string; options: ChoiceOption[]; correct: string; code?: string }
 export interface WheelFormula {
-  kind: 'formula'; prompt: string; columns: string[]; rows: Cell[][]; target: string;
-  expected: Record<string, number>; solution: string; requireFunctions?: string[];
+  kind: 'formula'; prompt: string; columns: string[]; rows: Cell[][]; target: string; fillDownTo?: string;
+  expected: Record<string, number>; solution: string; requireFunctions?: string[]; requireRefs?: string[];
 }
 export interface WheelSegment {
   id: string;

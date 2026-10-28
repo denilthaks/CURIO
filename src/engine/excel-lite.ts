@@ -10,6 +10,19 @@ import type { Cell } from './types';
 
 export class SheetError extends Error {}
 
+/** This is a teaching evaluator, not Excel: say so instead of inventing an Excel error. */
+export const UNSUPPORTED_PREFIX = 'Not supported in this ledger:';
+
+function unsupportedMessage(ch: string): string {
+  if ('−–—'.includes(ch)) return 'Use the ordinary minus sign (-) on your keyboard.';
+  if ('×·'.includes(ch)) return 'Use * to multiply.';
+  if ('÷'.includes(ch)) return 'Use / to divide.';
+  if ('<>'.includes(ch) || ch === '=') return `${UNSUPPORTED_PREFIX} comparisons (=, <, >) come in a later quest.`;
+  if (ch === '"' || ch === '&') return `${UNSUPPORTED_PREFIX} text and the & operator come in a later quest.`;
+  if (ch === '!') return `${UNSUPPORTED_PREFIX} references to other sheets.`;
+  return '#NAME?';
+}
+
 export type Sheet = Record<string, Cell>; // "B2" → value
 
 /** Build a sheet from header labels and data rows (data starts at row 2). */
@@ -43,7 +56,7 @@ function tokenize(src: string): Token[] {
     if (fnMatch) { tokens.push({ t: 'fn', v: fnMatch[0] }); i += fnMatch[0].length; continue; }
     if ('+-*/^(),:%'.includes(ch)) { tokens.push({ t: 'op', v: ch }); i += 1; continue; }
     if (ch === ';') { tokens.push({ t: 'op', v: ',' }); i += 1; continue; }
-    throw new SheetError('#NAME?');
+    throw new SheetError(unsupportedMessage(ch));
   }
   tokens.push({ t: 'end', v: '' });
   return tokens;
@@ -66,6 +79,14 @@ function cellNumber(sheet: Sheet, ref: string): number {
   if (value === undefined || value === null || value === '') return 0;
   if (typeof value === 'number') return value;
   throw new SheetError('#VALUE!');
+}
+
+function rangeContains(from: string, to: string, cell: string): boolean {
+  const a = REF.exec(from); const b = REF.exec(to); const c = REF.exec(cell);
+  if (!a || !b || !c) return false;
+  const [c0, c1] = [a[1], b[1]].sort();
+  const [r0, r1] = [+a[2], +b[2]].sort((x, y) => x - y);
+  return c[1] >= c0 && c[1] <= c1 && +c[2] >= r0 && +c[2] <= r1;
 }
 
 function rangeValues(sheet: Sheet, from: string, to: string): number[] {
@@ -146,6 +167,7 @@ export function evaluateFormula(formula: string, sheet: Sheet, self?: string): F
           next();
           if (peek().t !== 'ref') throw new SheetError('#REF!');
           const to = useRef(next().v);
+          if (self && rangeContains(from, to, self)) throw new SheetError('Circular reference: the range includes this cell itself');
           list.push(rangeValues(sheet, from, to));
         } else {
           list.push([expr()]);
@@ -166,7 +188,10 @@ export function evaluateFormula(formula: string, sheet: Sheet, self?: string): F
         return v;
       }
       if (tok.t === 'fn') {
-        if (!FUNCTIONS.includes(tok.v)) throw new SheetError('#NAME?');
+        if (!FUNCTIONS.includes(tok.v)) {
+          if (tok.v === 'TRUE' || tok.v === 'FALSE') throw new SheetError(`${UNSUPPORTED_PREFIX} TRUE and FALSE come in a later quest.`);
+          throw new SheetError('#NAME?');
+        }
         if (!isOp('(')) throw new SheetError('#NAME?');
         next();
         functions.push(tok.v);

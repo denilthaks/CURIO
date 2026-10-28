@@ -19,9 +19,9 @@ export const CHALLENGE_TYPES = new Set([
   'workshop', 'repair', 'runeword', 'wheel', 'match', 'gambit',
 ]);
 export const REVEAL_AFTER_ATTEMPTS = 3;
-/** Share of the XP earned so far in a quest that can be staked on one step. */
+/** Share of the silver purse so far that can be staked on one step. */
 export const MAX_STAKE_SHARE = 0.5;
-/** Wager losses can never take the quest pot below this share of the XP earned. */
+/** Stake losses can never take the silver purse below this share of the silver earned. */
 export const POT_FLOOR_SHARE = 0.5;
 export const DEFAULT_MASTERY = { threshold: 0.7, gold: 0.85 };
 
@@ -265,6 +265,8 @@ interface SheetTask {
   fillDownTo?: string;
   expected: Record<string, number>;
   requireFunctions?: string[];
+  /** Cells the formula must read, so a typed-in constant cannot pass. */
+  requireRefs?: string[];
   successFeedback?: string;
 }
 
@@ -287,12 +289,14 @@ export function evaluateSheet(scene: SheetTask, formula: string): Evaluation {
   const results: string[] = [];
   const issues: Issue[] = [];
   let firstFunctions: string[] = [];
+  let firstRefs: string[] = [];
   for (let row = start.row; row <= end; row += 1) {
     const cell = `${start.col}${row}`;
     const formula = row === start.row ? a.formula : fillFormula(a.formula, row - start.row);
     const r = evaluateFormula(formula, sheet, cell);
     if (row === start.row) {
       firstFunctions = r.functions;
+      firstRefs = r.refs;
       if (!r.ok) return { valid: true, correct: false, output: r.error, feedback: r.error?.startsWith('#') ? errorExplanation(r.error) : r.error, issues: [] };
       if (!r.refs.length) {
         return { valid: true, correct: false, output: String(r.value), issues: [], feedback: 'That formula only uses typed numbers. Refer to the cells (like B2) so it updates when the data changes.' };
@@ -308,6 +312,10 @@ export function evaluateSheet(scene: SheetTask, formula: string): Evaluation {
   }
   const output = results.join('\n');
   const absentFns = (scene.requireFunctions || []).filter((f) => !firstFunctions.includes(f.toUpperCase()));
+  const absentRefs = (scene.requireRefs || []).filter((ref) => !firstRefs.includes(ref.toUpperCase()));
+  if (!issues.length && absentRefs.length) {
+    return { valid: true, correct: false, output, issues: [], feedback: `The numbers match today, but ${absentRefs.join(', ')} is typed in rather than referenced. Point at the cell so the ledger updates when it changes.` };
+  }
   if (!issues.length && absentFns.length) {
     return { valid: true, correct: false, output, issues: [], feedback: `The number is right, but this step practises the ${absentFns.join(', ')} function. Try using it.` };
   }
@@ -616,14 +624,22 @@ export function wheelStopAngle(scene: WheelScene, segmentId: string): number {
   return (i + 0.5) / scene.segments.length;
 }
 
-// ---- XP, wagers and medals ----
+// ---- XP, the silver purse (wagers) and medals ----
+//
+// Three separate tallies, deliberately independent:
+//   XP      — earned only by solving steps; drives levels. Wagers never touch it.
+//   Silver  — the trader's purse: the optional wager side-game. Every solved
+//             step adds its XP value in silver; stakes win or lose silver.
+//             Silver affects nothing else (no XP, levels, medals or unlocks).
+//   Medal   — evidence of mastery only (boss score, first-time accuracy,
+//             answers revealed). Gold is reachable without ever staking.
 
 export function sceneXp(quest: Quest, scene: Scene, result: ChallengeResult): number {
   if (!isChallenge(scene) || !result.solved || result.revealed) return 0;
   return (scene.xp || 0) + (isFirstTry(scene, result) ? quest.xp.firstTryBonus || 0 : 0);
 }
 
-/** XP from solving steps (and finishing), before wagers. */
+/** XP from solving steps (and finishing). The only XP a run earns. */
 export function baseXp(quest: Quest, run: Run): number {
   let total = 0;
   for (const scene of quest.scenes) total += sceneXp(quest, scene, resultFor(run, scene.id));
@@ -631,7 +647,12 @@ export function baseXp(quest: Quest, run: Run): number {
   return total;
 }
 
-/** Net result of one settled wager: won when solved first time, lost otherwise. Unsettled = 0. */
+/** XP for a run. Wagers are a separate silver purse and never change XP. */
+export function computeXp(quest: Quest, run: Run): number {
+  return baseXp(quest, run);
+}
+
+/** Net silver from one settled stake: won when solved first time, lost otherwise. Unsettled = 0. */
 export function wagerResult(scene: Scene, run: Run): number {
   const stake = run.wagers?.[scene.id] ?? 0;
   const r = resultFor(run, scene.id);
@@ -643,31 +664,30 @@ export function wagerNet(quest: Quest, run: Run): number {
   return quest.scenes.reduce((sum, scene) => sum + wagerResult(scene, run), 0);
 }
 
-/** The quest pot: earned XP plus wager results, never below the floor. */
-export function computeXp(quest: Quest, run: Run): number {
-  const base = baseXp(quest, run);
-  return Math.max(Math.ceil(base * POT_FLOOR_SHARE), base + wagerNet(quest, run));
-}
-
-/** XP in the pot from the steps before `sceneId` — the most that can be staked is a share of it. */
-export function potBefore(quest: Quest, run: Run, sceneId: string): number {
-  let base = 0;
+/** Silver earned before `sceneId` (or in the whole run when omitted), including stake results; never below the floor. */
+export function purseBefore(quest: Quest, run: Run, sceneId?: string): number {
+  let earned = 0;
   let net = 0;
   for (const scene of quest.scenes) {
     if (scene.id === sceneId) break;
-    base += sceneXp(quest, scene, resultFor(run, scene.id));
+    earned += sceneXp(quest, scene, resultFor(run, scene.id));
     net += wagerResult(scene, run);
   }
-  return Math.max(Math.ceil(base * POT_FLOOR_SHARE), base + net);
+  return Math.max(Math.ceil(earned * POT_FLOOR_SHARE), earned + net);
+}
+
+/** The trader's purse at the end (or current point) of a run. */
+export function computeSilver(quest: Quest, run: Run): number {
+  return purseBefore(quest, run);
 }
 
 export function maxStake(quest: Quest, run: Run): number {
   const scene = currentScene(quest, run);
   if (!isChallenge(scene) || !scene.wager) return 0;
-  return Math.floor(potBefore(quest, run, scene.id) * MAX_STAKE_SHARE);
+  return Math.floor(purseBefore(quest, run, scene.id) * MAX_STAKE_SHARE);
 }
 
-/** Stake XP on the current step. Only before its first attempt; 0 withdraws the stake. */
+/** Stake silver on the current step. Only before its first attempt; 0 withdraws the stake. */
 export function placeWager(quest: Quest, run: Run, amount: number): Run {
   const scene = currentScene(quest, run);
   if (!isChallenge(scene) || !scene.wager) return run;
@@ -709,22 +729,67 @@ export function isMastered(quest: Quest, run: Run): boolean {
 }
 
 export type Medal = 'gold' | 'silver' | 'bronze' | 'none';
-export const MEDAL_RULES = { gold: 0.85, silver: 0.65 };
+/** Share of all rounds solved first time needed for each medal. */
+export const MEDAL_RULES = { gold: 0.8, silver: 0.6 };
+
+/** The evidence a medal is based on: never XP, silver or stakes. */
+export function masteryEvidence(quest: Quest, run: Run) {
+  const rounds = quest.scenes.filter(isChallenge);
+  const results = rounds.map((s) => resultFor(run, s.id));
+  const firstTime = rounds.filter((s, i) => isFirstTry(s, results[i])).length;
+  return {
+    rounds: rounds.length,
+    firstTime,
+    firstTimeShare: rounds.length ? firstTime / rounds.length : 1,
+    revealed: results.filter((r) => r.revealed).length,
+    boss: bossScore(quest, run),
+    mastered: isMastered(quest, run),
+  };
+}
 
 /**
- * Medal for a finished run. Bronze: quest mastered. Silver: pot ≥ 65% of the
- * quest's maximum XP. Gold: pot ≥ 85% AND boss mastery at the gold level AND at
- * least one stake placed — so gold always reflects skill, and the safe path
- * (no stakes) tops out at silver.
+ * Medal for a finished run, from demonstrated mastery only.
+ *   Bronze: the boss mission reached the mastery threshold (the quest is mastered).
+ *   Silver: mastered, and at least 60% of all rounds solved first time.
+ *   Gold:   boss at the gold level (85%), at least 80% of rounds first time,
+ *           and no answer revealed anywhere in the quest.
+ * Wagers play no part: the same play earns the same medal with or without stakes.
  */
 export function computeMedal(quest: Quest, run: Run): Medal {
-  if (!isMastered(quest, run)) return 'none';
-  const ratio = computeXp(quest, run) / Math.max(1, maxXp(quest));
-  const boss = bossScore(quest, run) ?? 1;
+  const e = masteryEvidence(quest, run);
+  if (!e.mastered) return 'none';
   const gold = (quest.mastery ?? DEFAULT_MASTERY).gold;
-  if (ratio >= MEDAL_RULES.gold && boss >= gold && stakesPlaced(quest, run) > 0) return 'gold';
-  if (ratio >= MEDAL_RULES.silver) return 'silver';
+  if ((e.boss ?? 1) >= gold && e.firstTimeShare >= MEDAL_RULES.gold && e.revealed === 0) return 'gold';
+  if (e.firstTimeShare >= MEDAL_RULES.silver) return 'silver';
   return 'bronze';
+}
+
+/** What the player still needs for the next medal, in words (empty at gold). */
+export function nextMedalHint(quest: Quest, run: Run): string {
+  const e = masteryEvidence(quest, run);
+  const medal = computeMedal(quest, run);
+  const t = quest.mastery ?? DEFAULT_MASTERY;
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
+  if (medal === 'none') return `Reach ${pct(t.threshold)} in the final challenge (you scored ${pct(e.boss ?? 0)}).`;
+  if (medal === 'bronze') return `Solve at least ${pct(MEDAL_RULES.silver)} of rounds first time for silver (you solved ${e.firstTime} of ${e.rounds}).`;
+  if (medal === 'silver') {
+    const needs = [];
+    if ((e.boss ?? 1) < t.gold) needs.push(`a final-challenge score of ${pct(t.gold)} (you scored ${pct(e.boss ?? 0)})`);
+    if (e.firstTimeShare < MEDAL_RULES.gold) needs.push(`${pct(MEDAL_RULES.gold)} of rounds first time (you solved ${e.firstTime} of ${e.rounds})`);
+    if (e.revealed) needs.push('no revealed answers');
+    return `For gold: ${needs.join(', ')}.`;
+  }
+  return '';
+}
+
+/**
+ * A finished run saved by an earlier version of a quest that has since gained a
+ * boss: it has no boss results. It keeps its completion and unlocks (see the
+ * v4 save migration) but cannot be scored for a medal.
+ */
+export function isLegacyRun(quest: Quest, run: Run): boolean {
+  const boss = bossScenes(quest);
+  return boss.length > 0 && boss.every((s) => !resultFor(run, s.id).solved);
 }
 
 export const MEDAL_RANK: Record<Medal, number> = { none: 0, bronze: 1, silver: 2, gold: 3 };
