@@ -850,6 +850,34 @@ const tests = [];
     await c.close();
   });
 
+  await run('L5b', 'Choosing a quest before choosing an identity returns to that quest, not The Missing Signal', async () => {
+    const c = await browser.newContext({ viewport: { width: 1366, height: 820 } });
+    const p = await c.newPage();
+    watch(p, 'identity-routing');
+    await p.goto(URL_BASE);
+    // Progress but no identity yet: the Trading Market is open.
+    await p.evaluate(() => localStorage.setItem('curiotrail.progress', JSON.stringify({
+      version: 4, player: null,
+      quests: { 'missing-signal': { run: null, runXp: 0, lastRun: null, lastXp: 60, bestXp: 60, bestStars: 3, completed: true, completions: 1, mastered: true, bestMastery: null, bestMedal: 'none', bestSilver: 0 } },
+      achievements: [], lessons: [], settings: { motion: 'reduce', textSize: 'normal', graphics: 'off' }, concepts: {},
+    })));
+    await p.goto(`${URL_BASE}#/map/trading-market`);
+    await p.locator('a[href="#/quest/market-ledger"]').click();
+    await p.waitForURL(/#\/start\/market-ledger$/);
+    await p.getByLabel(/call you/).fill('Friend');
+    await p.getByRole('button', { name: 'Begin the quest' }).click();
+    await p.waitForURL(/#\/quest\/market-ledger$/);
+    await p.waitForSelector('.scene-title');
+    expect((await p.locator('.quest-title').innerText()).includes('Merchant'), 'did not open the chosen quest');
+    // A brand-new player from the home page still starts at the first quest.
+    await p.evaluate(() => localStorage.removeItem('curiotrail.progress'));
+    await p.goto(`${URL_BASE}#/start`);
+    await p.reload();
+    await p.getByRole('button', { name: 'Begin the quest' }).click();
+    await p.waitForURL(/#\/quest\/missing-signal$/);
+    await c.close();
+  });
+
   // ---- Mobile ----
   await run('A16/H', 'Mobile layout: home, map bottom sheet, quest panel; no sideways scroll; touch targets', async () => {
     const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });

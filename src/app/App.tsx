@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GameProvider, useGame, type Content } from './game';
-import { navigate, useRoute, type Route } from './router';
+import { identityRedirect, navigate, useRoute, type Route } from './router';
 import { applySettings, focusMainHeading, prefersReducedMotion } from './a11y';
 import { validateCodex, validateCurriculum, validateQuest, validateRequirements, validateWorld } from '../engine/quest-validation';
 import type { Codex, Curriculum, Quest, World } from '../engine/types';
@@ -159,7 +159,7 @@ function Game() {
 
   let screen: React.ReactNode = null;
   switch (route.name) {
-    case 'start': screen = <StartScreen />; break;
+    case 'start': screen = <StartScreen next={route.next} />; break;
     case 'map': screen = <MapScreen selected={route.id} renderer={rendererRef} stageStatus={stageStatus} webgl={enabled} />; break;
     case 'quest': screen = <QuestScreen key={route.id} questId={route.id} onPose={setPose} onWorld={onWorld} reducedMotion={reducedMotion} />; break;
     case 'practice': screen = <PracticeScreen key={`${route.id}/${route.scene}`} questId={route.id} sceneId={route.scene} onPose={setPose} onWorld={onWorld} reducedMotion={reducedMotion} />; break;
@@ -197,7 +197,7 @@ function guardRoute(route: Route, game: ReturnType<typeof useGame>): string | nu
   if (route.name === 'quest' || route.name === 'complete' || route.name === 'practice') {
     const quest = quests.get(route.id);
     if (!quest) return '/map';
-    if (!progress.player) return '/start';
+    if (!progress.player) return identityRedirect(route);
     const dest = destinationForQuest(world, quest.id);
     if (!dest) return '/map';
     if ((route.name === 'complete' || route.name === 'practice') && !questRecord(progress, quest.id).completed) return `/quest/${quest.id}`;

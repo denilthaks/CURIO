@@ -28,7 +28,7 @@ The participant reads a printed or on-screen instruction sheet and plays alone. 
 - **Fresh profile:** clear site data first, so there is no earlier save.
 - **Start state:** the Trading Market opens after "The Missing Signal". So that participants start at the Market, the organiser (not the participant) opens the browser console on the game page before the session, runs the snippet below with that participant's code ("P1"…"P5") as the name, then reloads.
 
-  The player is set in advance on purpose. The identity screen ("Begin the quest") always continues to The Missing Signal, so a participant who chose a name there would be sent to the wrong quest (verified by the pre-check, which also confirms the setup below). Using the participant code as the name also keeps personal names out of the save.
+  The player is set in advance so that personal names stay out of the save. (An earlier build had a second reason: the identity screen's "Begin the quest" always continued to The Missing Signal. That was fixed on this branch, and e2e check L5b covers it.)
 
   ```js
   localStorage.setItem('curiotrail.progress', JSON.stringify({ version: 4, player: { name: 'P1', emblem: 'fox' },

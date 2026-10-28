@@ -381,3 +381,11 @@ In every case the 3D stage never covered the top bar and there were no page erro
 ### 11.4 Readiness
 
 **Not ready for a wider preview.** That is not because of a known defect: the evidence a preview needs (real players, assistive technology, real devices) does not exist yet. The build is ready for the small internal sessions above.
+
+## 12. Routing fix (U1) for the external feedback round
+
+**Fixed:** a player without an identity who opens a quest is now sent to `#/start/<quest>`, and "Begin the quest" returns to that quest. The Missing Signal is used only when no valid quest was chosen (e.g. "Start" on the home page). Lock rules still apply on arrival. The change is in `src/app/router.ts` (`identityRedirect`, `afterIdentityPath`), the route guard in `App.tsx` and `StartScreen.tsx`.
+
+**Regression tests:**
+- `tests/routing.test.ts`: 5 tests covering route parsing, the redirect, the return path, a save with progress but no player, and that locked quests stay guarded.
+- e2e check **L5b**: the original failure, played in Chromium, plus a check that a brand-new player still starts at The Missing Signal.
