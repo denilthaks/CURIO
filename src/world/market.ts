@@ -1,7 +1,7 @@
 // A small procedural market stall for the Trading Market: crates, a coin
 // stack, a lantern and a balance. It reacts to the player's ledger: coins
-// hop and the lantern flares on a right answer; crates shudder and the
-// balance tips on a wrong one. Low-poly, no textures, no lights.
+// hop and the lantern flares on a right answer; crates shudder, the
+// lantern turns red and the balance tips on a wrong one. Low-poly, no textures, no lights.
 
 import * as THREE from 'three';
 
@@ -99,15 +99,17 @@ export function createMarketStall(): MarketStall {
       const age = reaction ? time - reaction.start : Infinity;
       beam.rotation.z += (tilt - beam.rotation.z) * Math.min(1, delta * (still ? 60 : 3));
       lantern.position.y = 10 + (still ? 0 : Math.sin(time * 1.6) * 0.25);
-      const flare = reaction?.kind === 'right' && age < 1.2 && !still ? 1 + (1.2 - age) : 1;
+      const flare = reaction && age < 1.2 && !still ? 1 + (1.2 - age) * 1.4 : 1;
       lantern.scale.setScalar(flare);
+      // The lantern says it even without motion: green-gold when right, red when wrong.
+      glow.color.set(reaction && age < 1.6 ? (reaction.kind === 'right' ? '#b8ffcf' : '#ff6b5b') : '#ffd27a');
       coins.forEach((c, i) => {
-        const hop = reaction?.kind === 'right' && age < 1.4 && !still ? Math.max(0, Math.sin((age * 6) - i * 0.5)) * 1.6 : 0;
+        const hop = reaction?.kind === 'right' && age < 1.6 && !still ? Math.max(0, Math.sin((age * 6) - i * 0.5)) * 3 : 0;
         c.position.y = (c.userData.baseY as number) + hop;
       });
       crates.forEach((c, i) => {
         const base = c.userData.base as THREE.Vector3;
-        const shake = reaction?.kind === 'wrong' && age < 0.8 && !still ? Math.sin(age * 50 + i) * 0.35 * (0.8 - age) : 0;
+        const shake = reaction?.kind === 'wrong' && age < 0.9 && !still ? Math.sin(age * 50 + i) * 0.8 * (0.9 - age) : 0;
         c.position.set(base.x + shake, base.y, base.z);
       });
       if (age > 3) reaction = null;

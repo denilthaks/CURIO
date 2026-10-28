@@ -12,7 +12,7 @@ import type { Answer, Outcome, Quest, Run } from '../../engine/types';
 import type { Pose } from '../../world/characters';
 import type { SceneProps } from '../quest/common';
 import { ChoiceView } from '../quest/Scenes';
-import { GambitView, MatchView, RepairView, RunewordView, WheelView, WorkshopView } from '../games/GameViews';
+import { GambitView, MatchView, RepairView, RunewordView, SpotView, WheelView, WorkshopView } from '../games/GameViews';
 import { CodexDialog, questConcepts } from '../games/Hud';
 import { recordStep, type WorldEvent } from './QuestScreen';
 
@@ -74,7 +74,7 @@ export function PracticeScreen({ questId, sceneId, onPose, onWorld, reducedMotio
 
   const props: SceneProps = {
     quest, scene, result, outcome, tried: [], inspected: [], onCheck, onReveal, invalid,
-    onNext: again, onInspect: () => undefined, note: 'Practice round: no XP, but it counts towards remembering this skill.',
+    onNext: again, onInspect: () => undefined, note: 'Practice round: no XP, but it counts towards remembering this skill.', practice: true,
   };
   const gp = { ...props, run, reducedMotion, onSpin };
   let body: React.ReactNode = null;
@@ -86,6 +86,7 @@ export function PracticeScreen({ questId, sceneId, onPose, onWorld, reducedMotio
     case 'wheel': body = <WheelView key={run.seed} {...(gp as typeof gp & SceneProps<typeof scene>)} />; break;
     case 'match': body = <MatchView key={run.seed} {...(gp as typeof gp & SceneProps<typeof scene>)} />; break;
     case 'gambit': body = <GambitView key={run.seed} {...(gp as typeof gp & SceneProps<typeof scene>)} />; break;
+    case 'spot': body = <SpotView key={run.seed} {...(gp as typeof gp & SceneProps<typeof scene>)} />; break;
     default: body = <p>This round can be replayed by replaying the whole quest.</p>;
   }
 

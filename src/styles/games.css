@@ -172,7 +172,12 @@
 .match-item.is-right .match-btn { border-color: var(--green); background: var(--green-soft); }
 .match-tag { display: inline-grid; place-items: center; min-width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--brass); color: #fff; font-size: 0.85rem; }
 .match-select { font-size: var(--step--1); max-width: 100%; }
-@media (max-width: 640px) { .match-board { grid-template-columns: 1fr; } }
+/* Phones keep both columns side by side: pick a rune, its cause is beside it. */
+@media (max-width: 640px) {
+  .match-board { grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr); gap: var(--space-2); }
+  .match-btn { padding: 0.5rem 0.6rem; font-size: var(--step--1); min-height: 44px; }
+}
+.match-board.is-choosing .match-col:last-child .match-btn:not(:disabled) { border-color: var(--brass); }
 
 /* ---- Gambit ---- */
 .orders { border: 0; padding: 0; margin: var(--space-4) 0; display: grid; gap: var(--space-2); }
@@ -231,12 +236,67 @@
 .medal-next { margin: var(--space-2) 0 0; color: #ffe3a3; font-weight: 600; }
 .medal-purse { margin: var(--space-2) 0 0; color: var(--mist-muted); font-size: var(--step--1); }
 
-/* Keep the round track and purse in view while playing on wide screens. */
-@media (min-width: 900px) {
-  .quest-head:has(.quest-hud) { position: sticky; top: 0; z-index: 5; background: var(--night-900, #0f1420); padding-block: var(--space-2); }
+/* Keep the round track, XP and purse in view for the whole round: the page
+   scrolls under the sticky top bar, so the HUD pins just below its measured height. */
+.quest-hud--pinned {
+  position: sticky; top: var(--topbar-h, 0px); z-index: 5; margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius); background: rgba(11, 22, 38, 0.95); border: 1px solid rgba(201, 214, 232, 0.14); box-shadow: var(--shadow-soft);
+}
+@media (max-width: 899px) {
+  .quest-hud--pinned { padding: var(--space-2) var(--space-3); gap: 6px; }
+  .quest-hud--pinned .runes { flex-wrap: nowrap; gap: 3px; }
+  .quest-hud--pinned .rune { flex: 1 1 0; min-width: 0; width: auto; height: 1.25rem; font-size: 0.7rem; border-radius: 4px; }
+  .quest-hud--pinned .pot { min-width: 0; }
+  .quest-hud--pinned .codex-btn { padding-block: 0.25rem; }
+  .quest-panel:has(.quest-hud--pinned) .scene, .quest-panel:has(.quest-hud--pinned) .scene * { scroll-margin-top: calc(var(--topbar-h, 0px) + 6rem); }
 }
 .phase-badge--round { background: rgba(212, 160, 60, 0.18); }
 @media (min-width: 900px) {
   /* Focus and scroll targets must land below the pinned HUD, not under it. */
-  .quest-panel:has(.quest-hud) .scene, .quest-panel:has(.quest-hud) .scene * { scroll-margin-top: 11rem; }
+  .quest-panel:has(.quest-hud--pinned) .scene, .quest-panel:has(.quest-hud--pinned) .scene * { scroll-margin-top: calc(var(--topbar-h, 0px) + 8rem); }
 }
+
+/* ---- In-world feedback: the scene shows the result, this strip says it ---- */
+.feedback--game { margin-top: var(--space-3); padding: var(--space-3) var(--space-4); border-width: 0 0 0 5px; border-radius: var(--radius-sm); }
+.game-result { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; font-weight: 700; }
+.game-result-icon { display: inline-grid; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: 50%; background: rgba(0, 0, 0, 0.08); font-weight: 900; }
+.feedback--correct .game-result-icon { background: var(--green); color: #fff; animation: pop-in 420ms var(--ease) both; }
+.feedback--retry .game-result-icon { background: var(--amber-deep); color: #fff; }
+.xp-chip { margin-left: auto; padding: 0.1rem 0.6rem; border-radius: 999px; background: #fff3cf; color: #6e4700; font-size: var(--step--1); font-weight: 800; animation: xp-rise 700ms var(--ease) both; }
+.game-result-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); }
+.why-more summary { cursor: pointer; font-weight: 700; color: var(--teal-strong); }
+.why-more p { margin: var(--space-2) 0 0; }
+.game-why-open { margin: var(--space-2) 0; }
+.game-whisper { margin: var(--space-2) 0 0; font-style: italic; }
+.game-reveal { margin: var(--space-2) 0 0; }
+.issues--compact { margin: var(--space-2) 0 0; font-size: var(--step--1); }
+@keyframes pop-in { from { transform: scale(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes xp-rise { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* The ledger gives the verdict in place. */
+.ledger td.is-good { background: #d9f2dc; color: var(--green); font-weight: 700; }
+.ledger td.is-flag { animation: cell-shake 420ms ease; }
+@keyframes cell-shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+
+/* ---- Evidence hunt: selectable ledger + name box ---- */
+.ledger--pick td { padding: 0; }
+.ledger--pick td.is-working { padding: 0.45rem 0.6rem; background: #f4f1e8; color: #5a5040; font-style: italic; }
+.ledger--pick th.is-working { color: #8a7a5a; }
+.cell-btn { display: block; width: 100%; min-height: 44px; padding: 0.45rem 0.6rem; border: 0; background: transparent; color: inherit; font: inherit; text-align: inherit; cursor: pointer; }
+.ledger--pick td.num .cell-btn { text-align: right; }
+.cell-btn:hover:not(:disabled) { background: rgba(192, 138, 26, 0.15); }
+.cell-btn:focus-visible { outline: 3px solid var(--teal-strong); outline-offset: -3px; }
+.ledger td.is-picked, .ledger tr.is-picked-row td:not(.is-working) { box-shadow: inset 0 0 0 3px var(--brass); background: #fff3cf; }
+.ledger td.is-picked.is-good, .ledger tr.is-picked-row td.is-good { box-shadow: inset 0 0 0 3px var(--green); background: #d9f2dc; }
+.ledger td.is-picked.is-flag { box-shadow: inset 0 0 0 3px var(--rose); }
+.name-bar { flex-wrap: wrap; }
+.name-box { width: 5.5rem; padding: 0.5rem 0.6rem; border: 2px solid #c9d3de; border-radius: var(--radius-sm); font: 700 1rem ui-monospace, monospace; text-transform: uppercase; background: #e8eef5; color: var(--ink); }
+.name-box:focus-visible { outline: 3px solid var(--teal-strong); outline-offset: 1px; }
+.name-value { flex: 1; min-width: 6rem; padding: 0.5rem 0.7rem; border-radius: var(--radius-sm); background: #fff; border: 1px solid #d8d0bf; font-family: ui-monospace, monospace; }
+.working { margin-top: var(--space-2); }
+
+/* Results: the outcome and next move first, the detail behind one disclosure. */
+.results-more { margin-top: var(--space-5); border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: var(--space-3); }
+.results-more > summary { cursor: pointer; font-weight: 800; font-size: var(--step-1); color: var(--mist-strong); }
+.results-more[open] > summary { margin-bottom: var(--space-3); }
+.practise-next h2 { margin-top: var(--space-4); }

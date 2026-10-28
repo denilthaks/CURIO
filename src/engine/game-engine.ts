@@ -5,7 +5,7 @@
 import type {
   Answer, AssembleScene, Cell, ChallengeResult, ChallengeScene, ChoiceScene, GambitScene, Issue,
   KpiScene, MatchScene, Outcome, PythonScene, Quest, RepairScene, Run, RunewordScene, Scene, SchemaScene, SqlScene,
-  TradeReport, WheelScene, WheelSegment, WorkshopScene,
+  SpotScene, SpotTask, TradeReport, WheelScene, WheelSegment, WorkshopScene,
 } from './types';
 import { evaluatePython, str as pyStr, toJs } from './python-lite';
 import { colName, evaluateFormula, fillFormula, makeSheet, splitRef } from './excel-lite';
@@ -16,7 +16,7 @@ import { guessProblem, normaliseGuess, scoreGuess } from './games/runeword';
 
 export const CHALLENGE_TYPES = new Set([
   'choice', 'assemble', 'sql', 'python', 'excel', 'kpi', 'schema',
-  'workshop', 'repair', 'runeword', 'wheel', 'match', 'gambit',
+  'workshop', 'repair', 'runeword', 'wheel', 'match', 'gambit', 'spot',
 ]);
 export const REVEAL_AFTER_ATTEMPTS = 3;
 /** Share of the silver purse so far that can be staked on one step. */
@@ -60,7 +60,7 @@ export function isFirstTry(scene: Scene, result: ChallengeResult): boolean {
 
 // ---- Data variants: a boss uses different numbers on different runs ----
 
-type VariantScene = ChoiceScene | WorkshopScene | RepairScene;
+type VariantScene = ChoiceScene | WorkshopScene | RepairScene | SpotScene;
 
 export function variantIndex(scene: Scene, run: Run): number {
   const variants = (scene as VariantScene).variants;
@@ -76,6 +76,7 @@ export function resolveScene<S extends Scene>(scene: S, run: Run): S {
   if (scene.type === 'choice') {
     return { ...scene, sheet: scene.sheet ? { ...scene.sheet, rows: v.rows } : scene.sheet, correct: v.correct ?? scene.correct, context: v.context ?? scene.context };
   }
+  if (scene.type === 'spot') return { ...scene, rows: v.rows, answer: v.answer ?? scene.answer, context: v.context ?? scene.context };
   return { ...scene, rows: v.rows, expected: v.expected ?? (scene as unknown as WorkshopScene).expected, context: v.context ?? scene.context };
 }
 
@@ -391,9 +392,49 @@ function evaluateWheel(scene: WheelScene, answer: Answer, run: Run): Evaluation 
     if (!option) return { valid: false, message: 'Choose an answer first.' };
     return { valid: true, correct: option.id === c.correct, feedback: option.feedback, issues: [] };
   }
-  const formula = response && typeof response === 'object' ? response.formula : '';
+  if (c.kind === 'spot') return evaluateSpot(c, response && typeof response === 'object' && 'cell' in response ? response.cell : null);
+  const formula = response && typeof response === 'object' && 'formula' in response ? response.formula : '';
   if (!formula || !formula.trim() || formula.trim() === '=') return { valid: false, message: `Build a formula for ${c.target} first.` };
   return evaluateSheet(c, formula);
+}
+
+const ADDRESS = /^([A-Z])([1-9]\d*)$/;
+
+/** Read a selected or typed address ("b3", "$B$3") as "B3"; null if it isn't one. */
+export function normaliseAddress(text: unknown): string | null {
+  if (typeof text !== 'string') return null;
+  const t = text.trim().toUpperCase().replace(/\$/g, '');
+  return ADDRESS.test(t) ? t : null;
+}
+
+/** What a cell holds, as the player sees it. */
+export function spotCell(task: Pick<SpotTask, 'columns' | 'rows'>, cell: string): { inside: boolean; value: Cell | undefined; header: boolean } {
+  const m = ADDRESS.exec(cell);
+  if (!m) return { inside: false, value: undefined, header: false };
+  const col = m[1].charCodeAt(0) - 65;
+  const row = Number(m[2]);
+  const inside = col < task.columns.length && row >= 1 && row <= task.rows.length + 1;
+  if (!inside) return { inside, value: undefined, header: false };
+  return { inside, header: row === 1, value: row === 1 ? task.columns[col] : task.rows[row - 2][col] };
+}
+
+/** The player points at a cell; the engine checks it against the evidence. */
+export function evaluateSpot(task: SpotTask, picked: unknown): Evaluation {
+  const cell = normaliseAddress(picked);
+  if (!cell) return { valid: false, message: 'Select a cell in the ledger, or type its address (like B3).' };
+  const { inside, value, header } = spotCell(task, cell);
+  if (!inside) return { valid: false, message: `${cell} is outside this ledger. Pick a cell inside it.` };
+  const row = Number(cell.slice(1));
+  const correct = task.select === 'row'
+    ? task.answer.some((a) => Number(a.slice(1)) === row)
+    : task.answer.includes(cell);
+  const shown = value === null || value === undefined || value === '' ? 'nothing' : String(value);
+  if (correct) {
+    return { valid: true, correct: true, issues: [], output: cell, feedback: task.successFeedback ?? `${cell} it is: ${shown}.` };
+  }
+  const specific = task.feedback?.[cell] ?? task.feedback?.[`row:${row}`];
+  const fallback = header ? `${cell} is the heading “${shown}”. The evidence is in the rows below.` : `${cell} holds ${shown}. That isn’t the evidence you need.`;
+  return { valid: true, correct: false, issues: [{ id: cell, label: cell, text: specific ?? fallback }], output: cell, feedback: specific ?? fallback };
 }
 
 function evaluateMatch(scene: MatchScene, answer: Answer): Evaluation {
@@ -511,6 +552,7 @@ export function evaluate(scene: Scene, answer: Answer, run?: Run): Evaluation {
     case 'wheel': return run ? evaluateWheel(s, answer, run) : { valid: false, message: 'Spin the wheel first.' };
     case 'match': return evaluateMatch(s, answer);
     case 'gambit': return evaluateGambit(s, answer);
+    case 'spot': return evaluateSpot(s, answer && typeof answer === 'object' && 'cell' in answer ? answer.cell : null);
     case 'kpi': return evaluateKpi(s, answer);
     case 'schema': return evaluateSchema(s, answer);
     default: return { valid: false, message: 'This step has no answer to check.' };
@@ -590,10 +632,12 @@ export function correctAnswer(scene: Scene, run?: Run): Answer | null {
     case 'wheel': {
       const seg = run ? landedSegment(s, run) : null;
       if (!seg) return null;
-      return { response: seg.challenge.kind === 'choice' ? seg.challenge.correct : { formula: seg.challenge.solution } };
+      const c = seg.challenge;
+      return { response: c.kind === 'choice' ? c.correct : c.kind === 'spot' ? { cell: c.answer[0] } : { formula: c.solution } };
     }
     case 'match': return { pairs: { ...s.pairs } };
     case 'gambit': return { orders: [...s.solution.orders], formula: s.solution.formula };
+    case 'spot': return { cell: s.answer[0] };
     case 'kpi': return { placement: Object.fromEntries(s.cards.map((c) => [c.id, c.category])) };
     case 'schema': return { model: solutionModel(s) };
     default: return null;
@@ -826,8 +870,21 @@ export function maxXp(quest: Quest): number {
  * Stars for a finished run: 3 = every challenge right first time,
  * 2 = finished without revealing any answer, 1 = finished with help.
  */
+/** Quests built from the game mechanics: rated by medal, not stars. */
+export function isGameQuest(quest: Quest): boolean {
+  return quest.scenes.some((s) => isChallenge(s) && Boolean(s.mechanic));
+}
+
+const MEDAL_STARS: Record<Medal, number> = { gold: 3, silver: 2, bronze: 1, none: 0 };
+
+/**
+ * Stars for course quests. A game quest has one rating, its medal, so its
+ * stars simply mirror the medal (gold 3 … none 0) to keep the island's star
+ * total consistent without a second, competing score.
+ */
 export function computeStars(quest: Quest, run: Run): number {
   if (!run.completed) return 0;
+  if (isGameQuest(quest)) return MEDAL_STARS[computeMedal(quest, run)];
   const scenes = quest.scenes.filter(isChallenge);
   const results = scenes.map((s) => resultFor(run, s.id));
   if (results.some((r) => r.revealed)) return 1;

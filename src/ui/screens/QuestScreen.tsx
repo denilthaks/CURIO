@@ -13,7 +13,7 @@ import { EvidenceCard, Speech, type SceneProps } from '../quest/common';
 import { AssembleView, ChoiceView, DialogueView, EndingView, EvidenceView, ExcelView, KpiView, PythonView, SqlView } from '../quest/Scenes';
 import { LessonCard } from '../quest/LessonCard';
 import { SchemaLabView } from '../quest/SchemaLab';
-import { GambitView, MatchView, RepairView, RunewordView, WheelView, WorkshopView } from '../games/GameViews';
+import { GambitView, MatchView, RepairView, RunewordView, SpotView, WheelView, WorkshopView } from '../games/GameViews';
 import { WagerPanel } from '../games/parts';
 import { CodexDialog, PotMeter, RoundTrack, questConcepts } from '../games/Hud';
 
@@ -224,6 +224,7 @@ export function QuestScreen({ questId, onPose, onWorld, reducedMotion = false }:
     case 'wheel': body = <WheelView key={scene.id} {...(gameProps as typeof gameProps & SceneProps<typeof scene>)} />; break;
     case 'match': body = <MatchView key={scene.id} {...(gameProps as typeof gameProps & SceneProps<typeof scene>)} />; break;
     case 'gambit': body = <GambitView key={scene.id} {...(gameProps as typeof gameProps & SceneProps<typeof scene>)} />; break;
+    case 'spot': body = <SpotView key={scene.id} {...(gameProps as typeof gameProps & SceneProps<typeof scene>)} />; break;
     case 'lesson': body = (
       <>
         <Speech quest={quest} scene={{ ...scene, lines: undefined }} />
@@ -241,22 +242,24 @@ export function QuestScreen({ questId, onPose, onWorld, reducedMotion = false }:
           <a className="back-link" href={`#/map/${destination.id}`}>← {destination.name}</a>
           <p className="eyebrow">Quest {String(quest.number).padStart(2, '0')} · {quest.subject}{module ? ` · Module ${module.number}: ${module.title}` : ''}</p>
           <h1 id="quest-title" className="quest-title">{quest.title}</h1>
-          {gameQuest ? (
-            <div className="quest-hud">
-              <RoundTrack quest={quest} run={run} />
-              <div className="hud-row">
-                <PotMeter quest={quest} run={run} />
-                <button type="button" className="btn btn-secondary btn-sm codex-btn" onClick={() => setCodexOpen(true)}>📖 Codex</button>
-              </div>
-              <p className="sr-only" id="quest-progress-label">Step {step} of {total}</p>
-            </div>
-          ) : (
+          {!gameQuest && (
             <div className="quest-progress">
               <span id="quest-progress-label">Step {step} of {total}</span>
               <progress max={total} value={step} aria-labelledby="quest-progress-label" />
             </div>
           )}
         </header>
+        {gameQuest && (
+          // Outside the header so it can stay pinned for the whole round.
+          <div className="quest-hud quest-hud--pinned">
+            <RoundTrack quest={quest} run={run} />
+            <div className="hud-row">
+              <PotMeter quest={quest} run={run} />
+              <button type="button" className="btn btn-secondary btn-sm codex-btn" onClick={() => setCodexOpen(true)}>📖 Codex</button>
+            </div>
+            <p className="sr-only" id="quest-progress-label">Step {step} of {total}</p>
+          </div>
+        )}
         <div ref={stageRef}>
           <article key={scene.id} className={`scene scene--${scene.type} scene--phase-${phase.id}${engine.isChallenge(scene) && scene.boss ? ' scene--boss' : ''} parchment`}>
             {gameQuest ? <GameBadge quest={quest} scene={scene} /> : (

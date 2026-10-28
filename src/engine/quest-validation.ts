@@ -1,15 +1,15 @@
 // Checks quest and world content is well formed, so a content mistake shows
 // up in tests (or as a clear error) instead of as a broken quest.
 
-import type { Codex, Quest, Run, World } from './types';
+import type { Codex, Quest, Run, SpotTask, World } from './types';
 import type { Curriculum } from './types';
-import { evaluate, correctAnswer, createRun, evaluateSheet, isChallenge, tradeProfit } from './game-engine';
+import { evaluate, correctAnswer, createRun, evaluateSheet, evaluateSpot, isChallenge, normaliseAddress, spotCell, tradeProfit } from './game-engine';
 import { solutionModel, validateModel } from './schema-lab';
 import { FUNCTION_NAMES } from './games/function-names';
 import { isConceptId } from './games/mastery';
 import * as rng from './games/rng';
 
-const CHALLENGES = ['choice', 'assemble', 'sql', 'python', 'excel', 'kpi', 'schema', 'workshop', 'repair', 'runeword', 'wheel', 'match', 'gambit'];
+const CHALLENGES = ['choice', 'assemble', 'sql', 'python', 'excel', 'kpi', 'schema', 'workshop', 'repair', 'runeword', 'wheel', 'match', 'gambit', 'spot'];
 const SCENE_TYPES = new Set(['dialogue', 'evidence', 'lesson', 'ending', ...CHALLENGES]);
 
 /** Can `text` be built exactly from the given fragments (each usable any number of times)? */
@@ -172,13 +172,21 @@ export function validateQuest(quest: unknown): string[] {
       (scene.concepts || []).forEach((c) => isConceptId(c) || fail(`${at} has a malformed concept id "${c}".`));
     }
 
+    if (scene.type === 'spot') {
+      spotProblems(scene).forEach((p) => fail(`${at} ${p}`));
+      (scene.variants || []).forEach((v, i) => {
+        if (!Array.isArray(v.rows)) fail(`${at} variant ${i + 1} needs rows.`);
+        else spotProblems({ ...scene, rows: v.rows, answer: v.answer ?? scene.answer }).forEach((p) => fail(`${at} variant ${i + 1} ${p}`));
+      });
+    }
+
     // Steps with data variants: the solution must pass on every variant.
-    if (scene.type === 'workshop' || scene.type === 'repair' || scene.type === 'choice') {
+    if (scene.type === 'workshop' || scene.type === 'repair' || scene.type === 'choice' || scene.type === 'spot') {
       const variants = scene.variants || [];
       for (let i = 0; i <= variants.length; i += 1) {
-        if (i > 0 && scene.type !== 'choice' && (!variants[i - 1].expected || !Array.isArray(variants[i - 1].rows))) fail(`${at} variant ${i} needs rows and expected values.`);
+        if (i > 0 && (scene.type === 'workshop' || scene.type === 'repair') && (!variants[i - 1].expected || !Array.isArray(variants[i - 1].rows))) fail(`${at} variant ${i} needs rows and expected values.`);
         if (i > 0 && scene.type === 'choice' && variants[i - 1].correct && !scene.options.some((o) => o.id === variants[i - 1].correct)) fail(`${at} variant ${i} correct answer is not an option.`);
-        if (scene.type === 'choice' && !variants.length) break;
+        if ((scene.type === 'choice' || scene.type === 'spot') && !variants.length) break;
         const run = runWithVariant(q, scene.id, i);
         const result = evaluate(scene, correctAnswer(scene, run)!, run);
         if (!result.correct) fail(`${at} solution does not pass its own check on data variant ${i}: ${result.feedback ?? result.message}`);
@@ -217,6 +225,8 @@ export function validateQuest(quest: unknown): string[] {
         const c = g.challenge;
         if (c.kind === 'choice') {
           if (!c.options.some((o) => o.id === c.correct)) fail(`${at} segment "${g.id}" correct answer is not an option.`);
+        } else if (c.kind === 'spot') {
+          spotProblems(c).forEach((p) => fail(`${at} segment "${g.id}" ${p}`));
         } else if (!evaluateSheet(c, c.solution).correct) fail(`${at} segment "${g.id}" solution fails its own check.`);
       });
     }
@@ -344,4 +354,23 @@ export function validateCurriculum(curriculum: unknown, questIds: string[]): str
   }
   questIds.filter((q) => !seen.has(q)).forEach((q) => errors.push(`Quest "${q}" is not in any module.`));
   return errors;
+}
+
+/** An evidence ledger must be rectangular and its answer cells must be inside it, not headings. */
+function spotProblems(task: SpotTask): string[] {
+  const problems: string[] = [];
+  if (!Array.isArray(task.columns) || task.columns.length < 2) problems.push('needs at least two columns.');
+  if (!Array.isArray(task.rows) || !task.rows.length || task.rows.some((r) => r.length !== task.columns?.length)) problems.push('rows must match its columns.');
+  if (task.select !== 'cell' && task.select !== 'row') problems.push('select must be "cell" or "row".');
+  if (!Array.isArray(task.answer) || !task.answer.length) problems.push('needs at least one answer cell.');
+  for (const a of task.answer || []) {
+    const cell = normaliseAddress(a);
+    if (!cell || cell !== a) problems.push(`answer "${a}" is not a cell address.`);
+    else if (!problems.length) {
+      const where = spotCell(task, cell);
+      if (!where.inside || where.header) problems.push(`answer ${cell} is not a data cell of the ledger.`);
+      else if (!evaluateSpot(task, cell).correct) problems.push(`answer ${cell} does not pass its own check.`);
+    }
+  }
+  return problems;
 }

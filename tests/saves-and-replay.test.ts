@@ -6,7 +6,7 @@ import * as engine from '../src/engine/game-engine';
 import * as store from '../src/engine/progress-store';
 import * as progression from '../src/engine/progression';
 import { conceptLevel, recordConcepts } from '../src/engine/games/mastery';
-import type { ChoiceScene, Run } from '../src/engine/types';
+import type { ChoiceScene, Run, SpotScene } from '../src/engine/types';
 import { loadAllQuests, loadWorld, memoryStorage } from './helpers';
 
 const quests = loadAllQuests();
@@ -34,6 +34,7 @@ function play(seed: number, reveal: string[] = []): Run {
           const bad = scene.type === 'runeword' ? { guess: ['ACCRINT', 'ADDRESS', 'BESSELI', 'BESSELJ', 'BESSELK', 'BESSELY'][engine.resultFor(r, scene.id).attempts] }
             : scene.type === 'workshop' ? { formula: '=1+1' }
             : scene.type === 'repair' ? { diagnosis: scene.diagnoses.find((d) => d.id !== scene.correctDiagnosis)!.id, formula: scene.solution }
+            : scene.type === 'spot' ? { cell: (engine.resolveScene(scene, r) as SpotScene).answer[0] === 'A2' ? 'A3' : 'A2' }
             : (scene as ChoiceScene).options.find((o) => o.id !== (engine.resolveScene(scene, r) as ChoiceScene).correct)!.id;
           r = engine.submitAnswer(q, r, bad as never).run;
         }

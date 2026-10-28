@@ -310,18 +310,27 @@ export class WorldRenderer {
       this.stall = createMarketStall();
       this.scene.add(this.stall.group);
     }
-    const x = marker.ground.x - 14;
-    const z = marker.ground.z + 10;
-    this.stall.group.position.set(x, this.surfaceHeight(x, z) ?? marker.ground.y, z);
-    this.stall.group.rotation.y = 0.6;
+    // Beside Tove, between her and the market, so the quest camera (behind
+    // her, looking at the market) keeps the stall in frame and its reactions visible.
+    const spot = this.characterSpot(WorldRenderer.STALL_AT);
+    const toMarker = marker.ground.clone().sub(spot).setY(0).normalize();
+    if (toMarker.lengthSq() < 0.5) toMarker.set(-1, 0, 0);
+    const side = new THREE.Vector3(-toMarker.z, 0, toMarker.x);
+    const at = spot.clone().add(toMarker.clone().multiplyScalar(7)).add(side.multiplyScalar(-7));
+    this.stall.group.position.set(at.x, this.surfaceHeight(at.x, at.z) ?? marker.ground.y, at.z);
+    // Face the stall's front (its +z side, where the coins sit) towards Tove.
+    this.stall.group.rotation.y = Math.atan2(spot.x - at.x, spot.z - at.z);
+    this.stall.group.scale.setScalar(0.75);
   }
 
   /** The world reacts to the player's answer at the destination in focus. */
   react(event: 'right' | 'wrong') {
     const time = this.clock.getElapsed();
     const dest = this.mode.kind === 'focus' || this.mode.kind === 'celebrate' ? this.mode.destination : null;
-    if (dest === WorldRenderer.STALL_AT) this.stall?.react(event, time);
-    if (event === 'right' && dest) this.celebrate(dest, 60, ['#f2b134', '#ffe9a8']);
+    const atStall = dest === WorldRenderer.STALL_AT && this.stall;
+    if (atStall) this.stall!.react(event, time);
+    // Sparks rise from the stall itself, where the player is looking.
+    if (event === 'right' && dest) this.celebrate(dest, 70, ['#f2b134', '#ffe9a8'], atStall ? this.stall!.group.position.clone().add(new THREE.Vector3(0, 9, 0)) : undefined);
   }
 
   /** Highlight a destination from outside the canvas (e.g. hovering or focusing its card in the list). */
@@ -499,7 +508,7 @@ export class WorldRenderer {
 
   // ---- Effects ----
 
-  private celebrate(destination: string, count = 160, palette: [string, string] = ['#f2b134', '#2dd4bf']) {
+  private celebrate(destination: string, count = 160, palette: [string, string] = ['#f2b134', '#2dd4bf'], origin?: THREE.Vector3) {
     const marker = this.markers.get(destination);
     if (!marker || this.options.reducedMotion) return;
     if (this.burst) this.disposeBurst();
@@ -509,7 +518,8 @@ export class WorldRenderer {
     const gold = new THREE.Color(palette[0]);
     const teal = new THREE.Color(palette[1]);
     for (let i = 0; i < count; i += 1) {
-      positions.set([marker.ground.x, marker.ground.y + 18, marker.ground.z], i * 3);
+      if (origin) positions.set([origin.x, origin.y, origin.z], i * 3);
+      else positions.set([marker.ground.x, marker.ground.y + 18, marker.ground.z], i * 3);
       const a = Math.random() * Math.PI * 2;
       const up = 12 + Math.random() * 18;
       const out = 6 + Math.random() * 14;

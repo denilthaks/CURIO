@@ -16,6 +16,8 @@ export interface SceneProps<S extends Scene = Scene> {
   invalid: string | null;
   /** Extra line shown with the result (e.g. how a silver stake settled). */
   note?: ReactNode;
+  /** A practice replay: no XP is awarded, so none is shown. */
+  practice?: boolean;
 }
 
 const KIND_ICON: Record<string, string> = { source: '📜', ai: '🤖', message: '💬' };

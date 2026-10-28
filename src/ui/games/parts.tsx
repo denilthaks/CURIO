@@ -1,5 +1,5 @@
 // Building blocks shared by the game mechanics: a live ledger, a formula
-// builder (drag, tap or keyboard), the XP wager panel and market reactions.
+// builder (drag, tap or keyboard), the silver wager panel and market reactions.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Cell } from '../../engine/types';
@@ -26,23 +26,52 @@ export function previewColumn(formula: string, columns: string[], rows: Cell[][]
   return out;
 }
 
+/** Selecting cells in a ledger (evidence steps): which cell is chosen, and how. */
+export interface CellPicker {
+  selected: string | null;
+  onPick: (cell: string) => void;
+  /** Only the first `columns` columns are evidence; any working columns after them are not selectable. */
+  columns: number;
+  /** "row" highlights the whole row of the selected cell. */
+  mode: 'cell' | 'row';
+  disabled?: boolean;
+}
+
 /** A spreadsheet grid with column letters and row numbers, like Excel. */
-export function LedgerGrid({ columns, rows, target, fillDownTo, values = {}, label = 'Ledger', highlight = [], solved = false }: {
+export function LedgerGrid({ columns, rows, target, fillDownTo, values = {}, label = 'Ledger', highlight = [], good = [], solved = false, pick }: {
   columns: string[]; rows: Cell[][]; target?: string; fillDownTo?: string; values?: Record<string, string>;
-  label?: string; highlight?: string[]; solved?: boolean;
+  label?: string; highlight?: string[]; good?: string[]; solved?: boolean; pick?: CellPicker;
 }) {
   const t = target ? splitRef(target) : null;
   const end = t && fillDownTo ? splitRef(fillDownTo).row : t?.row ?? 0;
+  const selectedRow = pick?.selected ? Number(pick.selected.slice(1)) : null;
+  const cell = (ref: string, c: number, content: ReactNode, text: string) => {
+    if (!pick || c >= pick.columns) return content;
+    return (
+      <button
+        type="button" className="cell-btn" disabled={pick.disabled} aria-pressed={pick.selected === ref}
+        aria-label={`${ref}: ${text || 'empty'}`} onClick={() => pick.onPick(ref)}
+      >{content}</button>
+    );
+  };
   return (
-    <div className="table-scroll ledger-scroll" tabIndex={0} role="region" aria-label={label}>
-      <table className={`sheet ledger${solved ? ' ledger--solved' : ''}`}>
-        <thead><tr><th aria-hidden="true" />{columns.map((_, c) => <th key={c} scope="col">{colName(c)}</th>)}</tr></thead>
+    <div className={`table-scroll ledger-scroll${pick ? ' ledger-scroll--pick' : ''}`} tabIndex={pick ? -1 : 0} role="region" aria-label={label}>
+      <table className={`sheet ledger${solved ? ' ledger--solved' : ''}${pick ? ' ledger--pick' : ''}`}>
+        <thead><tr><th aria-hidden="true" />{columns.map((_, c) => <th key={c} scope="col" className={pick && c >= pick.columns ? 'is-working' : undefined}>{colName(c)}</th>)}</tr></thead>
         <tbody>
-          <tr><th scope="row">1</th>{columns.map((h, c) => <td key={c} className="sheet-header">{h}</td>)}</tr>
+          <tr>
+            <th scope="row">1</th>
+            {columns.map((h, c) => {
+              const ref = `${colName(c)}1`;
+              const cls = [pick?.selected === ref ? 'is-picked' : '', highlight.includes(ref) ? 'is-flag' : '', pick && c >= pick.columns ? 'is-working' : ''].filter(Boolean).join(' ');
+              return <td key={c} className={`sheet-header ${cls}`.trim()}>{cell(ref, c, h, String(h))}</td>;
+            })}
+          </tr>
           {rows.map((r, i) => {
             const rowNo = i + 2;
+            const rowPicked = pick?.mode === 'row' && selectedRow === rowNo;
             return (
-              <tr key={rowNo} style={{ ['--row' as string]: i }}>
+              <tr key={rowNo} style={{ ['--row' as string]: i }} className={rowPicked ? 'is-picked-row' : undefined}>
                 <th scope="row">{rowNo}</th>
                 {columns.map((_, c) => {
                   const ref = `${colName(c)}${rowNo}`;
@@ -50,12 +79,13 @@ export function LedgerGrid({ columns, rows, target, fillDownTo, values = {}, lab
                   const isFill = Boolean(t && colName(c) === t.col && rowNo > t.row && rowNo <= end);
                   const shown = values[ref];
                   const raw = r[c];
-                  const cls = [isTarget ? 'is-target' : '', isFill ? 'is-fill' : '', highlight.includes(ref) ? 'is-flag' : '', typeof raw === 'number' || shown !== undefined ? 'num' : '', shown?.startsWith('#') ? 'is-error' : ''].filter(Boolean).join(' ');
-                  return (
-                    <td key={ref} className={cls}>
-                      {shown !== undefined ? shown : isTarget ? <span className="placeholder">?</span> : isFill ? <span className="placeholder">↓</span> : raw ?? ''}
-                    </td>
-                  );
+                  const cls = [
+                    isTarget ? 'is-target' : '', isFill ? 'is-fill' : '', highlight.includes(ref) ? 'is-flag' : '', good.includes(ref) ? 'is-good' : '',
+                    pick?.selected === ref ? 'is-picked' : '', pick && c >= pick.columns ? 'is-working' : '',
+                    typeof raw === 'number' || shown !== undefined ? 'num' : '', shown?.startsWith('#') ? 'is-error' : '',
+                  ].filter(Boolean).join(' ');
+                  const content = shown !== undefined ? shown : isTarget ? <span className="placeholder">?</span> : isFill ? <span className="placeholder">↓</span> : raw ?? '';
+                  return <td key={ref} className={cls}>{cell(ref, c, content, shown ?? (raw === null || raw === undefined ? '' : String(raw)))}</td>;
                 })}
               </tr>
             );

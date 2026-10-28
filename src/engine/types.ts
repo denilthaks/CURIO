@@ -44,6 +44,8 @@ interface ChallengeBase extends SceneBase {
   wager?: boolean;
   /** Short name of the game mechanic, shown on the round banner (e.g. "Ledger Workshop"). */
   mechanic?: string;
+  /** How the market stall reacts to this step's result (game quests). */
+  consequence?: 'scales' | 'crates' | 'coins';
 }
 
 /** Alternative data for a step, chosen per run so a boss cannot be memorised. */
@@ -52,6 +54,8 @@ export interface DataVariant {
   expected?: Record<string, number>;
   /** For decision steps whose right answer depends on the data. */
   correct?: string;
+  /** For evidence steps: the cells that prove the point in this variant. */
+  answer?: string[];
   /** Text shown with the step for this variant (e.g. the figures being discussed). */
   context?: string;
 }
@@ -87,6 +91,30 @@ export interface ChoiceScene extends ChallengeBase {
   code?: string; // optional code/data snippet shown with the question
   /** Optional ledger shown with the question (e.g. "explain the outcome"); variants may change it. */
   sheet?: { columns: string[]; rows: Cell[][] };
+  variants?: DataVariant[];
+}
+
+/** A ledger the player reads and points at (shared by evidence steps and wheel segments). */
+export interface SpotTask {
+  columns: string[];
+  rows: Cell[][];
+  /** "cell": only the listed cells count; "row": any cell in a listed cell's row counts. */
+  select: 'cell' | 'row';
+  /** The cell(s) that answer the question. */
+  answer: string[];
+  /** Feedback for particular wrong picks, keyed by cell ("C3") or row ("row:4"). */
+  feedback?: Record<string, string>;
+  successFeedback?: string;
+}
+
+/**
+ * Point at the evidence: the player selects the cell (or row) in the ledger
+ * that answers the question, by clicking it or typing its address.
+ */
+export interface SpotScene extends ChallengeBase, SpotTask {
+  type: 'spot';
+  /** An optional working column the player may fill with a formula to help them. It is never scored. */
+  scratch?: { label: string };
   variants?: DataVariant[];
 }
 
@@ -151,8 +179,6 @@ export interface WorkshopScene extends ChallengeBase {
   solution: string;
   /** Fragments offered on the bench, including some that are not needed. */
   tokens: string[];
-  /** What reacts in the market when the ledger is right (scales, crates, coins). */
-  consequence?: 'scales' | 'crates' | 'coins';
   variants?: DataVariant[];
   successFeedback?: string;
 }
@@ -188,6 +214,7 @@ export interface RunewordScene extends ChallengeBase {
 }
 
 export interface WheelChoice { kind: 'choice'; prompt: string; options: ChoiceOption[]; correct: string; code?: string }
+export interface WheelSpot extends SpotTask { kind: 'spot'; prompt: string }
 export interface WheelFormula {
   kind: 'formula'; prompt: string; columns: string[]; rows: Cell[][]; target: string; fillDownTo?: string;
   expected: Record<string, number>; solution: string; requireFunctions?: string[]; requireRefs?: string[];
@@ -196,7 +223,7 @@ export interface WheelSegment {
   id: string;
   label: string; // rune / function family shown on the wheel
   concepts: string[];
-  challenge: WheelChoice | WheelFormula;
+  challenge: WheelChoice | WheelFormula | WheelSpot;
   hints: string[];
   explanation: string;
 }
@@ -283,7 +310,7 @@ export interface LabModel {
 
 export type ChallengeScene =
   | ChoiceScene | AssembleScene | SqlScene | PythonScene | ExcelScene | KpiScene | SchemaScene
-  | WorkshopScene | RepairScene | RunewordScene | WheelScene | MatchScene | GambitScene;
+  | WorkshopScene | RepairScene | RunewordScene | WheelScene | MatchScene | GambitScene | SpotScene;
 export type Scene = DialogueScene | EvidenceScene | EndingScene | LessonScene | ChallengeScene;
 
 export interface Quest {
@@ -361,7 +388,8 @@ export type Answer =
   | { model: LabModel } // schema lab
   | { diagnosis: string; formula: string } // repair
   | { guess: string } // runeword
-  | { response: string | { formula: string } } // wheel (answer to the landed segment)
+  | { response: string | { formula: string } | { cell: string } } // wheel (answer to the landed segment)
+  | { cell: string } // spot (the selected cell's address)
   | { pairs: Record<string, string> } // match
   | { orders: number[]; formula: string }; // gambit
 

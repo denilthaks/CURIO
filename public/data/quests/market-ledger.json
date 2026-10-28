@@ -78,36 +78,10 @@
     },
     {
       "id": "find-cell",
-      "type": "choice",
       "title": "Where is the honey?",
       "mechanic": "Ledger hunt",
       "speaker": "tove",
       "context": "Every cell has an address: its column letter, then its row number.",
-      "code": "     A        B       C\n1  Item     Price   Qty sold\n2  Furs       25       6\n3  Honey       8      15\n4  Amber      40       3\n5  Rope        5      22",
-      "prompt": "A customer wants the honey price. Which cell holds it?",
-      "options": [
-        {
-          "id": "B3",
-          "text": "B3",
-          "feedback": "Yes. Price is column B and Honey is on row 3, so B3 holds 8."
-        },
-        {
-          "id": "C3",
-          "text": "C3",
-          "feedback": "C3 is Honey's quantity sold (15). Price is in column B."
-        },
-        {
-          "id": "B2",
-          "text": "B2",
-          "feedback": "B2 is the price of Furs. Honey is one row down."
-        },
-        {
-          "id": "A3",
-          "text": "A3",
-          "feedback": "A3 holds the word Honey itself. The price is to its right."
-        }
-      ],
-      "correct": "B3",
       "hints": [
         "Column letter first, then row number.",
         "Find the Price column, then go down to Honey's row."
@@ -120,7 +94,48 @@
         "XL.CELL.ADDRESS"
       ],
       "xp": 10,
-      "phase": "guided"
+      "phase": "guided",
+      "type": "spot",
+      "prompt": "A customer wants the honey price. Select the cell that holds it, or type its address in the name box.",
+      "columns": [
+        "Item",
+        "Price",
+        "Qty sold"
+      ],
+      "rows": [
+        [
+          "Furs",
+          25,
+          6
+        ],
+        [
+          "Honey",
+          8,
+          15
+        ],
+        [
+          "Amber",
+          40,
+          3
+        ],
+        [
+          "Rope",
+          5,
+          22
+        ]
+      ],
+      "select": "cell",
+      "answer": [
+        "B3"
+      ],
+      "feedback": {
+        "C3": "C3 is Honey's quantity sold (15). The price is in column B.",
+        "B2": "B2 is the price of Furs. Honey is one row down.",
+        "A3": "A3 holds the word Honey itself. Its price is to the right.",
+        "B1": "B1 is the Price heading. Honey's price is further down the column."
+      },
+      "successFeedback": "B3: column B is Price, row 3 is Honey. Tove chalks 8 silver on the slate.",
+      "consequence": "coins"
     },
     {
       "id": "row-revenue",
@@ -596,7 +611,8 @@
         "XL.REF.ABSOLUTE"
       ],
       "xp": 20,
-      "phase": "practice"
+      "phase": "practice",
+      "consequence": "scales"
     },
     {
       "id": "profit-fix",
@@ -729,7 +745,8 @@
         "XL.OPS.ARITH"
       ],
       "xp": 20,
-      "phase": "practice"
+      "phase": "practice",
+      "consequence": "coins"
     },
     {
       "id": "error-runes",
@@ -1038,35 +1055,31 @@
             "XL.OPS.PRECEDENCE"
           ],
           "challenge": {
-            "kind": "choice",
-            "prompt": "Tobin bets Tove that =10+2*3 makes 36. What does Excel return?",
-            "options": [
-              {
-                "id": "16",
-                "text": "16",
-                "feedback": "Yes: 2*3 first, then add 10."
-              },
-              {
-                "id": "36",
-                "text": "36",
-                "feedback": "That's left-to-right reading. Excel multiplies before it adds."
-              },
-              {
-                "id": "15",
-                "text": "15",
-                "feedback": "Check again: only 2 and 3 are multiplied."
-              },
-              {
-                "id": "err",
-                "text": "An error",
-                "feedback": "It's a valid formula; Excel just follows its order of operations."
-              }
+            "kind": "formula",
+            "prompt": "Tobin bets that =A2+B2*C2 makes 36. Excel says 16. Build D2 so that 10 plus 2, times 3, really makes 36.",
+            "columns": [
+              "Base",
+              "Extra",
+              "Times",
+              "Result"
             ],
-            "correct": "16"
+            "rows": [
+              [
+                10,
+                2,
+                3,
+                null
+              ]
+            ],
+            "target": "D2",
+            "expected": {
+              "D2": 36
+            },
+            "solution": "=(A2+B2)*C2"
           },
           "hints": [
-            "Excel doesn't read left to right.",
-            "Multiplication before addition."
+            "Excel multiplies before it adds, so the addition needs brackets.",
+            "=(A2+B2)*C2"
           ],
           "explanation": "* and / come before + and −; use brackets when you mean otherwise."
         },
@@ -1077,36 +1090,44 @@
             "XL.CELL.ADDRESS"
           ],
           "challenge": {
-            "kind": "choice",
-            "code": "     A        B       C\n1  Ship     Crew    Cargo\n2  Raven      12      40\n3  Wolf        9      65\n4  Gull       15      30",
-            "prompt": "Which cell holds the Wolf's cargo?",
-            "options": [
-              {
-                "id": "C3",
-                "text": "C3",
-                "feedback": "Yes: Cargo is column C, Wolf is row 3."
-              },
-              {
-                "id": "B3",
-                "text": "B3",
-                "feedback": "B3 is the Wolf's crew."
-              },
-              {
-                "id": "C2",
-                "text": "C2",
-                "feedback": "C2 is the Raven's cargo."
-              },
-              {
-                "id": "3C",
-                "text": "3C",
-                "feedback": "Excel writes the column letter first: C3."
-              }
+            "kind": "spot",
+            "prompt": "The harbour master needs the Gull's cargo. Select that cell, or type its address in the name box.",
+            "columns": [
+              "Ship",
+              "Crew",
+              "Cargo"
             ],
-            "correct": "C3"
+            "rows": [
+              [
+                "Raven",
+                12,
+                40
+              ],
+              [
+                "Wolf",
+                9,
+                65
+              ],
+              [
+                "Gull",
+                15,
+                30
+              ]
+            ],
+            "select": "cell",
+            "answer": [
+              "C4"
+            ],
+            "feedback": {
+              "B4": "B4 is the Gull's crew. Cargo is column C.",
+              "C3": "C3 is the Wolf's cargo. The Gull is one row down.",
+              "A4": "A4 is the ship's name. Its cargo is two columns to the right."
+            },
+            "successFeedback": "C4: column C is Cargo, row 4 is the Gull."
           },
           "hints": [
             "Column letter first, then row number.",
-            "Cargo is column C."
+            "Cargo is column C; the Gull is on row 4."
           ],
           "explanation": "Addresses work the same on every sheet: column letter, then row number."
         }
@@ -1184,60 +1205,18 @@
         "XL.OPS.ARITH"
       ],
       "xp": 25,
-      "phase": "practice"
+      "phase": "practice",
+      "consequence": "crates"
     },
     {
       "id": "explain-restock",
-      "type": "choice",
       "title": "Why the rope rotted",
-      "mechanic": "Explain the outcome",
+      "mechanic": "Evidence hunt",
       "speaker": "tove",
-      "context": "Last season I ordered 30 coils of rope for 2 silver each. Customers wanted 22. I sold them at 5.",
-      "sheet": {
-        "columns": [
-          "Item",
-          "Price",
-          "Cost",
-          "Demand",
-          "Order"
-        ],
-        "rows": [
-          [
-            "Rope",
-            5,
-            2,
-            22,
-            30
-          ]
-        ]
-      },
-      "prompt": "What does the ledger say happened, and why?",
-      "options": [
-        {
-          "id": "right",
-          "text": "Profit was 50: 22 sold for 110, but all 30 cost 60. The 8 unsold coils lost 16.",
-          "feedback": "Exactly: 5 × 22 − 2 × 30 = 50. Ordering to demand (22) would have made 66."
-        },
-        {
-          "id": "more",
-          "text": "Profit was 90: more stock always means more profit.",
-          "feedback": "Only 22 sold. 5 × 30 − 2 × 30 = 90 counts sales that never happened."
-        },
-        {
-          "id": "same",
-          "text": "Profit was 66 either way: unsold rope costs nothing.",
-          "feedback": "Unsold rope was still paid for: 8 × 2 = 16 silver gone."
-        },
-        {
-          "id": "loss",
-          "text": "It was a loss, because cost is more than demand.",
-          "feedback": "Cost (2) and demand (22) aren't comparable. Work out sales and costs separately."
-        }
-      ],
-      "correct": "right",
+      "context": "Last season I ordered 30 coils of rope at 2 silver each and sold them at 5. I made 50 silver. Ordering exactly what sold would have made 66.",
       "hints": [
-        "Sales are limited by demand: 22 coils.",
-        "Profit = 5 × 22 − 2 × 30."
+        "66 − 50 = 16 silver went somewhere. What did Tove pay for but never sell?",
+        "Unsold coils still cost 2 silver each: 8 × 2 = 16."
       ],
       "explanation": "Numbers become decisions when you can say what they mean: unsold stock is pure cost.",
       "skills": [
@@ -1247,7 +1226,57 @@
         "XL.KPI.MARGIN"
       ],
       "xp": 15,
-      "phase": "practice"
+      "phase": "practice",
+      "type": "spot",
+      "prompt": "Where did the other 16 silver go? Select the number in the ledger that explains it.",
+      "columns": [
+        "Item",
+        "Ordered",
+        "Sold",
+        "Unsold",
+        "Price",
+        "Cost each"
+      ],
+      "rows": [
+        [
+          "Honey",
+          15,
+          15,
+          0,
+          8,
+          3
+        ],
+        [
+          "Rope",
+          30,
+          22,
+          8,
+          5,
+          2
+        ],
+        [
+          "Amber",
+          3,
+          3,
+          0,
+          40,
+          30
+        ]
+      ],
+      "select": "cell",
+      "answer": [
+        "D3"
+      ],
+      "feedback": {
+        "F3": "2 silver is what each coil cost. Which number, times 2, makes the missing 16?",
+        "C3": "22 coils sold for 110: that's the income, and it's the same either way.",
+        "B3": "30 coils ordered. Part of that order is the problem, but which part?",
+        "E3": "The price earns money on coils that sold. The loss is on coils that didn't.",
+        "D2": "Honey sold everything it ordered: nothing was wasted there.",
+        "D4": "Amber sold everything it ordered: nothing was wasted there."
+      },
+      "successFeedback": "D3: 8 coils never sold, and each cost 2 silver: 8 × 2 = 16 silver paid for nothing.",
+      "consequence": "crates"
     },
     {
       "id": "audit-arrives",
@@ -1615,49 +1644,69 @@
         "XL.FN.SUM"
       ],
       "xp": 20,
-      "phase": "assessment"
+      "phase": "assessment",
+      "consequence": "scales"
     },
     {
       "id": "audit-discrepancy",
-      "type": "choice",
       "title": "Audit III: the missing coins",
       "mechanic": "Mystery investigation · boss",
       "speaker": "hrolf",
       "context": "My men counted the coins for each item. One item's coins don't match what the ledger says it sold. Find it.",
-      "sheet": {
-        "columns": [
-          "Item",
-          "Price",
-          "Qty sold",
-          "Coins counted"
+      "hints": [
+        "Expected coins = Price × Qty sold, row by row.",
+        "Compare each product with the Coins counted column."
+      ],
+      "explanation": "Reconciling expected against actual, row by row, is how real audits find missing money.",
+      "skills": [
+        "read-cells",
+        "decide-with-data"
+      ],
+      "concepts": [
+        "XL.OPS.ARITH",
+        "XL.CELL.ADDRESS"
+      ],
+      "xp": 20,
+      "phase": "assessment",
+      "boss": true,
+      "type": "spot",
+      "prompt": "Select the coins count that doesn't match price × quantity sold. You may work in the spare column first.",
+      "columns": [
+        "Item",
+        "Price",
+        "Qty sold",
+        "Coins counted"
+      ],
+      "rows": [
+        [
+          "Furs",
+          25,
+          6,
+          150
         ],
-        "rows": [
-          [
-            "Furs",
-            25,
-            6,
-            150
-          ],
-          [
-            "Honey",
-            8,
-            15,
-            120
-          ],
-          [
-            "Amber",
-            40,
-            3,
-            80
-          ],
-          [
-            "Rope",
-            5,
-            22,
-            110
-          ]
+        [
+          "Honey",
+          8,
+          15,
+          120
+        ],
+        [
+          "Amber",
+          40,
+          3,
+          80
+        ],
+        [
+          "Rope",
+          5,
+          22,
+          110
         ]
-      },
+      ],
+      "select": "cell",
+      "answer": [
+        "D4"
+      ],
       "variants": [
         {
           "rows": [
@@ -1686,7 +1735,9 @@
               150
             ]
           ],
-          "correct": "honey"
+          "answer": [
+            "D3"
+          ]
         },
         {
           "rows": [
@@ -1715,49 +1766,16 @@
               96
             ]
           ],
-          "correct": "rope"
+          "answer": [
+            "D5"
+          ]
         }
       ],
-      "prompt": "Which item's coins don't match price × quantity sold?",
-      "options": [
-        {
-          "id": "furs",
-          "text": "Furs",
-          "feedback": "Check it: work out price × quantity for furs and compare it with the coins counted."
-        },
-        {
-          "id": "honey",
-          "text": "Honey",
-          "feedback": "Check it: work out price × quantity for honey and compare it with the coins counted."
-        },
-        {
-          "id": "amber",
-          "text": "Amber",
-          "feedback": "Check it: work out price × quantity for amber and compare it with the coins counted."
-        },
-        {
-          "id": "rope",
-          "text": "Rope",
-          "feedback": "Check it: work out price × quantity for rope and compare it with the coins counted."
-        }
-      ],
-      "correct": "amber",
-      "boss": true,
-      "hints": [
-        "Expected coins = Price × Qty sold, row by row.",
-        "Compare each product with the Coins counted column."
-      ],
-      "explanation": "Reconciling expected against actual, row by row, is how real audits find missing money.",
-      "skills": [
-        "read-cells",
-        "decide-with-data"
-      ],
-      "concepts": [
-        "XL.OPS.ARITH",
-        "XL.CELL.ADDRESS"
-      ],
-      "xp": 20,
-      "phase": "assessment"
+      "scratch": {
+        "label": "Working"
+      },
+      "successFeedback": "That count is short. Hrolf's men recount it, and you were right.",
+      "consequence": "coins"
     },
     {
       "id": "audit-rune",
@@ -1788,40 +1806,57 @@
     },
     {
       "id": "audit-verdict",
-      "type": "choice",
       "title": "Audit V: the verdict",
       "mechanic": "Explain the outcome · boss",
       "speaker": "hrolf",
       "context": "Next season the Jarl allows only three goods per stall. Here is what each earned and what its stock cost.",
-      "sheet": {
-        "columns": [
-          "Item",
-          "Revenue",
-          "Stock cost"
+      "hints": [
+        "High revenue isn't the same as high profit.",
+        "Profit = Revenue − Stock cost for each row; drop the smallest."
+      ],
+      "explanation": "Decide on profit, not revenue: a good that sells a lot can still earn the least.",
+      "skills": [
+        "decide-with-data"
+      ],
+      "concepts": [
+        "XL.KPI.MARGIN"
+      ],
+      "xp": 20,
+      "phase": "assessment",
+      "boss": true,
+      "type": "spot",
+      "prompt": "Select the good Tove should drop: any cell in its row. You may work out each profit in the spare column first.",
+      "columns": [
+        "Item",
+        "Revenue",
+        "Stock cost"
+      ],
+      "rows": [
+        [
+          "Furs",
+          150,
+          90
         ],
-        "rows": [
-          [
-            "Furs",
-            150,
-            90
-          ],
-          [
-            "Honey",
-            120,
-            60
-          ],
-          [
-            "Amber",
-            120,
-            90
-          ],
-          [
-            "Rope",
-            110,
-            44
-          ]
+        [
+          "Honey",
+          120,
+          60
+        ],
+        [
+          "Amber",
+          120,
+          90
+        ],
+        [
+          "Rope",
+          110,
+          44
         ]
-      },
+      ],
+      "select": "row",
+      "answer": [
+        "A4"
+      ],
       "variants": [
         {
           "rows": [
@@ -1846,7 +1881,9 @@
               44
             ]
           ],
-          "correct": "furs"
+          "answer": [
+            "A2"
+          ]
         },
         {
           "rows": [
@@ -1871,47 +1908,16 @@
               50
             ]
           ],
-          "correct": "rope"
+          "answer": [
+            "A5"
+          ]
         }
       ],
-      "prompt": "Which good should Tove drop, and why?",
-      "options": [
-        {
-          "id": "furs",
-          "text": "Furs — the lowest profit (revenue − stock cost)",
-          "feedback": "Compute revenue − stock cost for every good before deciding."
-        },
-        {
-          "id": "honey",
-          "text": "Honey — the lowest profit (revenue − stock cost)",
-          "feedback": "Compute revenue − stock cost for every good before deciding."
-        },
-        {
-          "id": "amber",
-          "text": "Amber — the lowest profit (revenue − stock cost)",
-          "feedback": "Compute revenue − stock cost for every good before deciding."
-        },
-        {
-          "id": "rope",
-          "text": "Rope — the lowest profit (revenue − stock cost)",
-          "feedback": "Compute revenue − stock cost for every good before deciding."
-        }
-      ],
-      "correct": "amber",
-      "boss": true,
-      "hints": [
-        "High revenue isn't the same as high profit.",
-        "Profit = Revenue − Stock cost for each row; drop the smallest."
-      ],
-      "explanation": "Decide on profit, not revenue: a good that sells a lot can still earn the least.",
-      "skills": [
-        "decide-with-data"
-      ],
-      "concepts": [
-        "XL.KPI.MARGIN"
-      ],
-      "xp": 20,
-      "phase": "assessment"
+      "scratch": {
+        "label": "Working"
+      },
+      "successFeedback": "The lowest profit, revenue − stock cost. Hrolf nods and stamps the ledger.",
+      "consequence": "crates"
     },
     {
       "id": "ending",

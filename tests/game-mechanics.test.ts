@@ -7,7 +7,7 @@ import { scoreGuess, guessProblem, letterStates } from '../src/engine/games/rune
 import { draw, mulberry32, weightedIndex } from '../src/engine/games/rng';
 import { conceptLevel, recordConcepts, reviewWeight, sanitizeConcepts } from '../src/engine/games/mastery';
 import { buildableFrom, validateCodex, validateQuest } from '../src/engine/quest-validation';
-import type { Answer, Codex, GambitScene, Quest, RepairScene, Run, WheelScene } from '../src/engine/types';
+import type { Answer, Codex, GambitScene, Quest, RepairScene, Run, SpotScene, SpotTask, WheelScene } from '../src/engine/types';
 import { QUEST_IDS, loadAllQuests, loadQuest, loadWorld, memoryStorage, readJson } from './helpers';
 
 const q = loadQuest('market-ledger');
@@ -49,6 +49,18 @@ function finish(run: Run, quest: Quest = q, answer: (r: Run) => Answer | null = 
   return r;
 }
 
+/** A data cell that does not answer an evidence step (a different row for row steps). */
+function wrongCell(task: SpotTask): string {
+  const rows = task.answer.map((a) => Number(a.slice(1)));
+  for (let r = 2; r <= task.rows.length + 1; r += 1) {
+    for (let c = 0; c < task.columns.length; c += 1) {
+      const cell = `${String.fromCharCode(65 + c)}${r}`;
+      if (task.select === 'row' ? !rows.includes(r) : !task.answer.includes(cell)) return cell;
+    }
+  }
+  throw new Error('no wrong cell');
+}
+
 /** A valid but wrong answer for any step type in the Market quest. */
 function wrongAnswer(scene: ReturnType<typeof engine.currentScene>, run: Run): Answer {
   const guesses = run.guesses?.[scene.id] ?? [];
@@ -59,9 +71,10 @@ function wrongAnswer(scene: ReturnType<typeof engine.currentScene>, run: Run): A
     case 'runeword': return { guess: (scene.word.length === 3 ? ['SUM', 'MIN', 'ABS', 'DAY', 'COS', 'EXP', 'INT', 'LEN'] : ['ACCRINT', 'ADDRESS', 'BESSELI', 'BESSELJ', 'BESSELK', 'BESSELY', 'BETAINV', 'CEILING']).filter((w) => w.length === scene.word.length && !guesses.includes(w) && w !== scene.word)[0] };
     case 'match': return { pairs: Object.fromEntries(scene.left.map((l, i) => [l.id, scene.right[(i + 1) % scene.right.length].id])) };
     case 'gambit': return { orders: scene.items.map((it) => it.demand), formula: scene.solution.formula };
+    case 'spot': return { cell: wrongCell(engine.resolveScene(scene, run)) };
     case 'wheel': {
-      const seg = engine.landedSegment(scene, run)!;
-      return { response: seg.challenge.kind === 'choice' ? seg.challenge.options.find((o) => o.id !== (seg.challenge as { correct: string }).correct)!.id : { formula: '=1' } };
+      const c = engine.landedSegment(scene, run)!.challenge;
+      return { response: c.kind === 'choice' ? c.options.find((o) => o.id !== c.correct)!.id : c.kind === 'spot' ? { cell: wrongCell(c) } : { formula: '=1' } };
     }
     default: throw new Error(`no wrong answer for ${scene.type}`);
   }
@@ -266,9 +279,9 @@ describe('Boss mission with data variants', () => {
     const b = seeds.find((s) => engine.variantIndex(scene, engine.createRun(q, s)) === 1)!;
     const runA = goTo('audit-discrepancy', a);
     const runB = goTo('audit-discrepancy', b);
-    expect(engine.submitAnswer(q, runA, 'amber').outcome.correct).toBe(true);
-    expect(engine.submitAnswer(q, runB, 'amber').outcome.correct).toBe(false);
-    expect(engine.submitAnswer(q, runB, 'honey').outcome.correct).toBe(true);
+    expect(engine.submitAnswer(q, runA, { cell: 'D4' }).outcome.correct).toBe(true);
+    expect(engine.submitAnswer(q, runB, { cell: 'D4' }).outcome.correct).toBe(false);
+    expect(engine.submitAnswer(q, runB, { cell: 'D3' }).outcome.correct).toBe(true);
   });
   test('boss steps hold back the first hint', () => {
     const run = goTo('audit-revenue');
@@ -467,5 +480,82 @@ describe('Codex and content integrity', () => {
     expect(types.size).toBeGreaterThanOrEqual(5);
     expect(engine.bossScenes(q).length).toBeGreaterThanOrEqual(4);
     expect(new Set(engine.bossScenes(q).map((s) => s.type)).size).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('Evidence steps: the player points at the proof in the ledger', () => {
+  const spot = (id: string) => q.scenes.find((s) => s.id === id) as SpotScene;
+  test('no step in the Market quest is a plain multiple-choice question any more', () => {
+    expect(q.scenes.filter((s) => s.type === 'choice')).toEqual([]);
+    const wheel = q.scenes.find((s) => s.type === 'wheel') as WheelScene;
+    expect(wheel.segments.filter((g) => g.challenge.kind === 'choice')).toEqual([]);
+  });
+  test('selecting or typing the address both work, in any spelling Excel accepts', () => {
+    const s = spot('find-cell');
+    for (const cell of ['B3', 'b3', ' $B$3 ', 'B$3']) expect(engine.evaluate(s, { cell }).correct).toBe(true);
+  });
+  test('a wrong cell gets feedback about what that cell actually holds', () => {
+    const s = spot('find-cell');
+    expect(engine.evaluate(s, { cell: 'C3' }).feedback).toMatch(/quantity sold/);
+    expect(engine.evaluate(s, { cell: 'C5' }).feedback).toMatch(/C5 holds 22/);
+    expect(engine.evaluate(s, { cell: 'A1' }).feedback).toMatch(/heading “Item”/);
+  });
+  test('outside the ledger, or not an address, is not counted as an attempt', () => {
+    const s = spot('find-cell');
+    for (const cell of ['D2', 'B9', 'B0', 'honey', '3B', '']) expect(engine.evaluate(s, { cell }).valid).toBe(false);
+    // The working column next to the audit ledger is the player's, not evidence.
+    expect(engine.evaluate(spot('audit-discrepancy'), { cell: 'E4' }).valid).toBe(false);
+  });
+  test('row steps accept any cell in the right row and nothing else', () => {
+    const s = spot('audit-verdict');
+    for (const cell of ['A4', 'B4', 'C4']) expect(engine.evaluate(s, { cell }).correct).toBe(true);
+    for (const cell of ['A2', 'B3', 'C5']) expect(engine.evaluate(s, { cell }).correct).toBe(false);
+  });
+  test('the explanation step needs the cause (unsold stock), not the nearby numbers', () => {
+    const s = spot('explain-restock');
+    expect(engine.evaluate(s, { cell: 'D3' }).correct).toBe(true);
+    for (const cell of ['B3', 'C3', 'F3', 'D2']) expect(engine.evaluate(s, { cell }).correct).toBe(false);
+  });
+  test('the wheel CELL segment is an evidence pick; ORDER is a formula that needs brackets', () => {
+    const wheel = q.scenes.find((s) => s.type === 'wheel') as WheelScene;
+    const cell = wheel.segments.find((g) => g.id === 'address')!.challenge as SpotTask;
+    expect(engine.evaluateSpot(cell, 'C4').correct).toBe(true);
+    expect(engine.evaluateSpot(cell, 'C3').correct).toBe(false);
+    const order = wheel.segments.find((g) => g.id === 'order')!.challenge as Parameters<typeof engine.evaluateSheet>[0];
+    expect(engine.evaluateSheet(order, '=(A2+B2)*C2').correct).toBe(true);
+    expect(engine.evaluateSheet(order, '=A2+B2*C2').correct).toBe(false);
+    expect(engine.evaluateSheet(order, '=36').correct).toBe(false);
+  });
+  test('content checks reject an answer on a heading or outside the ledger', () => {
+    const bad = (answer: string[]) => ({ ...q, scenes: q.scenes.map((s) => (s.id === 'find-cell' ? { ...s, answer } : s)) }) as Quest;
+    expect(validateQuest(bad(['B1'])).join('\n')).toMatch(/not a data cell/);
+    expect(validateQuest(bad(['Z9'])).join('\n')).toMatch(/not a data cell/);
+    expect(validateQuest(bad(['b3'])).join('\n')).toMatch(/not a cell address/);
+  });
+});
+
+describe('game quests have one rating: the medal', () => {
+  test('stars for a game quest mirror its medal, never a separate score', () => {
+    expect(engine.isGameQuest(q)).toBe(true);
+    const cases: [Record<string, number | 'reveal'>, string, number][] = [
+      [{}, 'gold', 3],
+      [{ 'error-runes': 'reveal' }, 'silver', 2],
+      [{ 'audit-revenue': 'reveal', 'audit-tax': 'reveal', 'audit-discrepancy': 'reveal' }, 'none', 0],
+    ];
+    for (const [plan, medal, stars] of cases) {
+      const run = playRun(9, plan);
+      expect(engine.computeMedal(q, run)).toBe(medal);
+      expect(engine.computeStars(q, run)).toBe(stars);
+    }
+  });
+  test('wagers change neither the medal nor the stars', () => {
+    const safe = playRun(4, { 'rune-max': 4 });
+    const bold = playRun(4, { 'rune-max': 4 }, ['rune-max', 'rune-wheel', 'restock']);
+    expect(engine.computeStars(q, bold)).toBe(engine.computeStars(q, safe));
+    expect(engine.computeXp(q, bold)).toBe(engine.computeXp(q, safe));
+  });
+  test('course quests keep their star rules', () => {
+    const course = loadAllQuests().get('missing-signal')!;
+    expect(engine.isGameQuest(course)).toBe(false);
   });
 });

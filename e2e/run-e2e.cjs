@@ -478,7 +478,15 @@ const tests = [];
   await run('P9-6c', 'Excel quest (The Merchant’s Ledger): game mechanics evaluated by the engine; the boss gates the Great Hall', async () => {
     await page.goto(`${URL_BASE}#/quest/market-ledger`);
     await page.getByRole('button', { name: 'Open the ledger' }).click();
-    await choose(page, 'B3'); await next(page);
+    // Evidence hunt: select a cell in the ledger (or type its address in the name box).
+    const pickCell = (cell) => page.locator(`.ledger--pick .cell-btn[aria-label^="${cell}:"]`).click();
+    await pickCell('C3'); await page.getByRole('button', { name: 'Point it out' }).click();
+    await page.waitForSelector('.feedback--retry');
+    expect((await feedbackText(page)).includes('quantity sold'), 'wrong cell explained');
+    expect(await page.locator('.ledger td.is-flag').count() === 1, 'wrong cell flagged in the ledger');
+    await page.locator('#spot-find-cell-name').fill('b3'); await page.locator('#spot-find-cell-name').press('Enter');
+    await page.getByRole('button', { name: 'Point it out' }).click();
+    await page.waitForSelector('.feedback--correct'); await next(page);
     const typeFormula = async (formula, submit) => {
       // Keyboard alternative to the fragment bench.
       if (!(await page.locator('.builder input.formula-input').count())) await page.getByRole('button', { name: /Type it instead/ }).click();
@@ -490,7 +498,8 @@ const tests = [];
     expect((await page.locator('td.is-target').innerText()).trim() === '150', 'live preview');
     await page.getByRole('button', { name: 'Write it in the ledger' }).click();
     await page.waitForSelector('.feedback--correct');
-    expect((await feedbackText(page)).includes('D5 = 110'), 'fill-down output');
+    // The verdict shows in the ledger itself: every filled-down row settles.
+    expect((await page.locator('.ledger--solved td.is-fill').last().innerText()).trim() === '110', 'fill-down result in the ledger');
     await shot(page, '14-excel-challenge');
     await next(page);
     await typeFormula('=150+120+120+110', 'Write it in the ledger');
@@ -516,7 +525,8 @@ const tests = [];
     await page.locator('#fix-profit-fix').fill('=(B2-C2)*D2');
     await page.getByRole('button', { name: 'Repair the ledger' }).click();
     await page.waitForSelector('.feedback--correct'); await next(page);
-    // Rune match via the select-menu alternative.
+    // Rune match via the select-menu alternative (behind a toggle; tapping pairs is the default).
+    await page.getByRole('button', { name: 'Use menus instead' }).click();
     for (const [l, r] of [['div0', 'zero'], ['name', 'spell'], ['value', 'text'], ['ref', 'deleted']]) await page.locator(`#m-error-runes-${l}`).selectOption(r);
     await page.getByRole('button', { name: 'Break the curse' }).click();
     await page.waitForSelector('.feedback--correct'); await next(page);
@@ -528,6 +538,7 @@ const tests = [];
     const landed = (await page.locator('.wheel-landed strong').innerText()).trim();
     const seg = quest.scenes.find((s) => s.id === 'rune-wheel').segments.find((g) => g.label === landed);
     if (seg.challenge.kind === 'choice') await page.locator('label.option', { hasText: seg.challenge.options.find((o) => o.id === seg.challenge.correct).text }).first().click();
+    else if (seg.challenge.kind === 'spot') await pickCell(seg.challenge.answer[0]);
     else await page.locator('.challenge .formula-input').fill(seg.challenge.solution);
     await page.getByRole('button', { name: 'Answer the rune' }).click();
     await page.waitForSelector('.feedback--correct'); await next(page);
@@ -536,7 +547,8 @@ const tests = [];
     for (const [i, n] of [6, 15, 0, 22].entries()) await page.locator(`#ord-restock-${i}`).fill(String(n));
     await page.getByRole('button', { name: 'Send the order to the ship' }).click();
     await page.waitForSelector('.feedback--correct'); await next(page);
-    await choose(page, 'Profit was 50'); await next(page);
+    await pickCell('D3'); await page.getByRole('button', { name: 'Point it out' }).click();
+    await page.waitForSelector('.feedback--correct'); await next(page);
     await page.getByRole('button', { name: 'Face the audit' }).click();
     // Boss: the data varies per run, so the answers are worked out from the screen.
     await typeFormula('=B2*C2', 'Write it in the ledger');
@@ -546,12 +558,14 @@ const tests = [];
     await page.getByRole('button', { name: 'Repair the ledger' }).click();
     await page.waitForSelector('.feedback--correct'); await next(page);
     const rows = async () => page.locator('.ledger tbody tr').evaluateAll((trs) => trs.slice(1).map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent.trim())));
-    const odd = (await rows()).find((r) => Number(r[1]) * Number(r[2]) !== Number(r[3]))[0];
-    await choose(page, odd); await next(page);
+    const odd = (await rows()).findIndex((r) => Number(r[1]) * Number(r[2]) !== Number(r[3])) + 2;
+    await pickCell(`D${odd}`); await page.getByRole('button', { name: 'Show Hrolf' }).click();
+    await page.waitForSelector('.feedback--correct'); await next(page);
     await page.locator('#rune-audit-rune').fill('AVERAGE'); await page.getByRole('button', { name: 'Carve the rune' }).click();
     await page.waitForSelector('.feedback--correct'); await next(page);
-    const drop = (await rows()).map((r) => [r[0], Number(r[1]) - Number(r[2])]).sort((a, b) => a[1] - b[1])[0][0];
-    await choose(page, `${drop} — the lowest`); await next(page);
+    const drop = (await rows()).map((r, i) => [i + 2, Number(r[1]) - Number(r[2])]).sort((a, b) => a[1] - b[1])[0][0];
+    await pickCell(`A${drop}`); await page.getByRole('button', { name: 'Show Hrolf' }).click();
+    await page.waitForSelector('.feedback--correct'); await next(page);
     await page.getByRole('button', { name: 'See your results' }).click();
     await page.waitForURL(/#\/complete\/market-ledger/);
     expect((await page.locator('.medal-name').innerText()).includes('medal'), 'medal shown');

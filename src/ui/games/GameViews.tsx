@@ -3,11 +3,13 @@
 // correctness on its own.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { GambitScene, MatchScene, RepairScene, Run, RunewordScene, Scene, Tile, TradeReport, WheelScene, WorkshopScene } from '../../engine/types';
-import { GAMBIT_COLUMNS, correctAnswer, landedSegment, tradeProfit, wheelStopAngle } from '../../engine/game-engine';
+import type { Answer, GambitScene, MatchScene, Outcome, RepairScene, Run, RunewordScene, Scene, SpotScene, SpotTask, Tile, TradeReport, WheelScene, WorkshopScene } from '../../engine/types';
+import { GAMBIT_COLUMNS, correctAnswer, landedSegment, normaliseAddress, spotCell, tradeProfit, wheelStopAngle } from '../../engine/game-engine';
+import { colName } from '../../engine/excel-lite';
 import { letterStates, normaliseGuess, scoreGuess } from '../../engine/games/runeword';
-import { Actions, CodeBlock, Feedback, InvalidMessage, Speech, type SceneProps } from '../quest/common';
+import { Actions, CodeBlock, InvalidMessage, Speech, type SceneProps } from '../quest/common';
 import { FormulaBuilder, GameFrame, LedgerGrid, MarketReaction, previewColumn } from './parts';
+import { GameFeedback, flaggedCells } from './feedback';
 
 type GameProps<S extends Scene> = SceneProps<S> & { run: Run; reducedMotion: boolean; onSpin?: () => void };
 
@@ -16,33 +18,51 @@ function reactionState(solved: boolean, revealed: boolean, wrong: boolean): 'idl
   return wrong ? 'wrong' : 'idle';
 }
 
+/**
+ * After a check, the ledger itself shows the verdict: flagged cells turn red,
+ * the cells that came out right turn green. Only while the formula on screen
+ * is the one that was checked, so edits never show a stale verdict.
+ */
+function verdictCells(expected: Record<string, number>, outcome: Outcome | null, current: string, checked: string | null) {
+  if (!outcome || outcome.correct || checked === null || current !== checked) return { flags: [], good: [] };
+  const flags = flaggedCells(outcome);
+  const values = Object.keys(expected);
+  // A formula that fails outright (an error, typed numbers) has no per-cell verdict.
+  if (!flags.length) return { flags: [], good: [] };
+  return { flags, good: values.filter((c) => !flags.includes(c)) };
+}
+
 // ---- Ledger Workshop ----
 
 export function WorkshopView(props: GameProps<WorkshopScene>) {
   const { quest, scene, result, outcome, onCheck, invalid } = props;
   const [formula, setFormula] = useState('');
+  const [checked, setChecked] = useState<string | null>(null);
   const solved = result.solved;
   const shown = solved ? scene.solution : formula;
   // In the boss the ledger stays blank until the answer is checked: an
   // assessment shouldn't allow free trial-and-error with live results.
+  // After a check it shows what the checked formula produced.
   const live = !scene.boss || solved;
-  const values = useMemo(() => (live ? previewColumn(shown, scene.columns, scene.rows, scene.target, scene.fillDownTo) : {}), [live, shown, scene]);
+  const showing = live ? shown : checked;
+  const values = useMemo(() => (showing ? previewColumn(showing, scene.columns, scene.rows, scene.target, scene.fillDownTo) : {}), [showing, scene]);
+  const verdict = verdictCells(scene.expected, outcome, formula, checked);
   const state = reactionState(solved, result.revealed, Boolean(outcome && !outcome.correct));
   return (
     <GameFrame mechanic={scene.mechanic ?? 'Ledger Workshop'} icon="🛠️">
       <Speech quest={quest} scene={scene} />
       <div className="workshop-stage">
-        <LedgerGrid columns={scene.columns} rows={scene.rows} target={scene.target} fillDownTo={scene.fillDownTo} values={values} solved={solved && !result.revealed} label="Tove's ledger" />
+        <LedgerGrid columns={scene.columns} rows={scene.rows} target={scene.target} fillDownTo={scene.fillDownTo} values={values} highlight={verdict.flags} good={verdict.good} solved={solved && !result.revealed} label="Tove's ledger" />
         {scene.consequence && <MarketReaction kind={scene.consequence} state={state} />}
       </div>
-      <form className="challenge" noValidate onSubmit={(e) => { e.preventDefault(); onCheck({ formula }); }}>
+      <form className="challenge" noValidate onSubmit={(e) => { e.preventDefault(); setChecked(formula); onCheck({ formula }); }}>
         <p className="prompt" id={`ws-prompt-${scene.id}`}>{scene.prompt}</p>
         <FormulaBuilder id={`ws-${scene.id}`} tokens={scene.tokens} value={shown} onChange={setFormula} disabled={solved} cell={scene.target} label={scene.prompt} />
         {scene.fillDownTo && <p className="hint">Your formula in {scene.target} is filled down to {scene.fillDownTo}.{!scene.boss ? ' The grid previews what each row would show — checking is what counts.' : ' No preview in the audit: Hrolf checks it when you write it in.'}</p>}
         <InvalidMessage text={invalid} />
         {!solved && <Actions><button type="submit" className="btn btn-primary btn-lg">Write it in the ledger</button></Actions>}
       </form>
-      <Feedback {...props} revealedAnswer={<CodeBlock code={scene.solution} label="One correct formula" />} />
+      <GameFeedback {...props} revealedAnswer={<CodeBlock code={scene.solution} label="One correct formula" />} />
     </GameFrame>
   );
 }
@@ -50,13 +70,17 @@ export function WorkshopView(props: GameProps<WorkshopScene>) {
 // ---- Repair Mission ----
 
 export function RepairView(props: GameProps<RepairScene>) {
-  const { quest, scene, result, onCheck, invalid } = props;
+  const { quest, scene, result, outcome, onCheck, invalid } = props;
   const [diagnosis, setDiagnosis] = useState<string | null>(null);
   const [formula, setFormula] = useState(scene.broken);
+  const [checked, setChecked] = useState<string | null>(null);
   const solved = result.solved;
   const broken = useMemo(() => previewColumn(scene.broken, scene.columns, scene.rows, scene.target, scene.fillDownTo), [scene]);
   const live = !scene.boss || solved;
-  const fixed = useMemo(() => (live ? previewColumn(solved ? scene.solution : formula, scene.columns, scene.rows, scene.target, scene.fillDownTo) : {}), [live, formula, scene, solved]);
+  const showing = solved ? scene.solution : live ? formula : checked;
+  const fixed = useMemo(() => (showing ? previewColumn(showing, scene.columns, scene.rows, scene.target, scene.fillDownTo) : {}), [showing, scene]);
+  const verdict = verdictCells(scene.expected, outcome, formula, checked);
+  const state = reactionState(solved, result.revealed, Boolean(outcome && !outcome.correct));
   const wrongCells = Object.entries(broken).filter(([cell, v]) => scene.expected[cell] !== undefined && v !== String(Math.round(scene.expected[cell] * 100) / 100)).map(([c]) => c);
   return (
     <GameFrame mechanic={scene.mechanic ?? 'Repair Mission'} icon="🔧">
@@ -65,7 +89,7 @@ export function RepairView(props: GameProps<RepairScene>) {
         <figcaption>The broken ledger: <code>{scene.broken}</code> in {scene.target}{scene.fillDownTo ? `, filled to ${scene.fillDownTo}` : ''}</figcaption>
         <LedgerGrid columns={scene.columns} rows={scene.rows} target={scene.target} fillDownTo={scene.fillDownTo} values={broken} highlight={wrongCells} label="Broken ledger" />
       </figure>
-      <form className="challenge" noValidate onSubmit={(e) => { e.preventDefault(); onCheck({ diagnosis: diagnosis ?? '', formula }); }}>
+      <form className="challenge" noValidate onSubmit={(e) => { e.preventDefault(); setChecked(formula); onCheck({ diagnosis: diagnosis ?? '', formula }); }}>
         <fieldset>
           <legend className="prompt">1 · What went wrong?</legend>
           <div className="options options--compact">
@@ -83,11 +107,14 @@ export function RepairView(props: GameProps<RepairScene>) {
           <span className="fx" aria-hidden="true">fx</span>
           <input id={`fix-${scene.id}`} className="formula-input" value={solved ? scene.solution : formula} readOnly={solved} onChange={(e) => setFormula(e.target.value)} spellCheck={false} autoCapitalize="off" autoCorrect="off" />
         </div>
-        <LedgerGrid columns={scene.columns} rows={scene.rows} target={scene.target} fillDownTo={scene.fillDownTo} values={fixed} solved={solved && !result.revealed} label={live ? 'Ledger with your repair (preview)' : 'Ledger (no preview in the audit)'} />
+        <div className="workshop-stage">
+          <LedgerGrid columns={scene.columns} rows={scene.rows} target={scene.target} fillDownTo={scene.fillDownTo} values={fixed} highlight={verdict.flags} good={verdict.good} solved={solved && !result.revealed} label={live ? 'Ledger with your repair (preview)' : 'Ledger (no preview in the audit until you repair it)'} />
+          {scene.consequence && <MarketReaction kind={scene.consequence} state={state} />}
+        </div>
         <InvalidMessage text={invalid} />
         {!solved && <Actions><button type="submit" className="btn btn-primary btn-lg">Repair the ledger</button></Actions>}
       </form>
-      <Feedback {...props} revealedAnswer={<CodeBlock code={`${scene.diagnoses.find((d) => d.id === scene.correctDiagnosis)!.text}\n${scene.solution}`} label="Cause and repair" />} />
+      <GameFeedback {...props} revealedAnswer={<CodeBlock code={`${scene.diagnoses.find((d) => d.id === scene.correctDiagnosis)!.text}\n${scene.solution}`} label="Cause and repair" />} />
     </GameFrame>
   );
 }
@@ -155,7 +182,7 @@ export function RunewordView(props: GameProps<RunewordScene>) {
           <Actions><button type="submit" className="btn btn-primary btn-lg">Carve the rune</button></Actions>
         </form>
       )}
-      <Feedback {...props} revealedAnswer={<CodeBlock code={scene.word} label="The hidden function" />} />
+      <GameFeedback {...props} revealedAnswer={<CodeBlock code={scene.word} label="The hidden function" />} />
     </GameFrame>
   );
 }
@@ -170,6 +197,7 @@ export function WheelView(props: GameProps<WheelScene>) {
   const [spinning, setSpinning] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
   const [formula, setFormula] = useState('');
+  const [checked, setChecked] = useState<string | null>(null);
   const solved = result.solved;
   const n = scene.segments.length;
   const stop = segment ? wheelStopAngle(scene, segment.id) : 0;
@@ -212,8 +240,14 @@ export function WheelView(props: GameProps<WheelScene>) {
           {segment && <p className="wheel-landed" role="status">{spinning ? 'The wheel is spinning…' : <>Landed on <strong>{segment.label}</strong></>}</p>}
         </div>
       </div>
-      {showChallenge && challenge && (
-        <form className="challenge" noValidate onSubmit={(e) => { e.preventDefault(); onCheck({ response: challenge.kind === 'choice' ? response ?? '' : { formula } }); }}>
+      {showChallenge && challenge && challenge.kind === 'spot' && (
+        <EvidencePicker
+          id={`wheel-${scene.id}`} task={challenge} prompt={challenge.prompt} solved={solved} revealed={result.revealed} outcome={props.outcome}
+          invalid={invalid} submitLabel="Answer the rune" onSubmit={(cell) => onCheck({ response: { cell } })}
+        />
+      )}
+      {showChallenge && challenge && challenge.kind !== 'spot' && (
+        <form className="challenge" noValidate onSubmit={(e) => { e.preventDefault(); setChecked(formula); onCheck({ response: challenge.kind === 'choice' ? response ?? '' : { formula } }); }}>
           {challenge.kind === 'choice' ? (
             <>
               {challenge.code && <CodeBlock code={challenge.code} />}
@@ -232,7 +266,11 @@ export function WheelView(props: GameProps<WheelScene>) {
           ) : (
             <>
               <p className="prompt">{challenge.prompt}</p>
-              <LedgerGrid columns={challenge.columns} rows={challenge.rows} target={challenge.target} fillDownTo={challenge.fillDownTo} values={previewColumn(solved ? challenge.solution : formula, challenge.columns, challenge.rows, challenge.target, challenge.fillDownTo)} label="Ledger" />
+              <LedgerGrid
+                columns={challenge.columns} rows={challenge.rows} target={challenge.target} fillDownTo={challenge.fillDownTo} label="Ledger"
+                values={previewColumn(solved ? challenge.solution : formula, challenge.columns, challenge.rows, challenge.target, challenge.fillDownTo)}
+                solved={solved && !result.revealed} {...(() => { const v = verdictCells(challenge.expected, props.outcome, formula, checked); return { highlight: v.flags, good: v.good }; })()}
+              />
               {challenge.fillDownTo && <p className="hint">Your formula in {challenge.target} is filled down to {challenge.fillDownTo}.</p>}
               <div className="formula-bar">
                 <span className="cell-name" aria-hidden="true">{challenge.target}</span>
@@ -246,7 +284,106 @@ export function WheelView(props: GameProps<WheelScene>) {
         </form>
       )}
       {!segment && <InvalidMessage text={invalid} />}
-      {segment && <Feedback {...props} scene={{ ...scene, explanation: segment.explanation, hints: segment.hints }} revealedAnswer={<CodeBlock code={challenge!.kind === 'choice' ? challenge!.options.find((o) => o.id === challenge!.correct)!.text : challenge!.solution} label="Answer" />} />}
+      {segment && <GameFeedback {...props} scene={{ ...scene, explanation: segment.explanation, hints: segment.hints }} revealedAnswer={<CodeBlock code={wheelAnswerText(challenge!)} label="Answer" />} />}
+    </GameFrame>
+  );
+}
+
+function wheelAnswerText(c: NonNullable<ReturnType<typeof landedSegment>>['challenge']): string {
+  if (c.kind === 'choice') return c.options.find((o) => o.id === c.correct)!.text;
+  if (c.kind === 'spot') return evidenceText(c);
+  return c.solution;
+}
+
+function evidenceText(task: SpotTask): string {
+  const cell = task.answer[0];
+  const v = spotCell(task, cell).value;
+  return task.select === 'row' ? `Row ${cell.slice(1)} (${task.rows[Number(cell.slice(1)) - 2][0]})` : `${cell}: ${v ?? ''}`;
+}
+
+// ---- Evidence hunt: point at the proof in the ledger ----
+
+/**
+ * A ledger whose cells can be selected, with an Excel-style name box: type an
+ * address and press Enter to select it. Selecting is free; only "pointing it
+ * out" is checked. An optional working column lets the player calculate first.
+ */
+function EvidencePicker({ id, task, prompt, solved, revealed, outcome, invalid, submitLabel, onSubmit, working, aside }: {
+  id: string; task: SpotTask; prompt: string; solved: boolean; revealed: boolean; outcome: Outcome | null; invalid: string | null;
+  submitLabel: string; onSubmit: (cell: string) => void; working?: { label: string }; aside?: React.ReactNode;
+}) {
+  const [picked, setPicked] = useState<string | null>(null);
+  const [typed, setTyped] = useState<string | null>(null);
+  const [checked, setChecked] = useState<string | null>(null);
+  const [work, setWork] = useState('');
+  const workCol = colName(task.columns.length);
+  const columns = working ? [...task.columns, working.label] : task.columns;
+  const rows = working ? task.rows.map((r) => [...r, null]) : task.rows;
+  const last = task.rows.length + 1;
+  const workValues = useMemo(() => (working ? previewColumn(work, columns, rows, `${workCol}2`, `${workCol}${last}`) : {}), [work, working, workCol, last]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Once solved, the evidence is marked: the player's own pick, or the answer if it was revealed.
+  const selected = solved ? (revealed || !picked ? task.answer[0] : picked) : picked;
+  const answerCells = task.select === 'row'
+    ? task.answer.flatMap((a) => task.columns.map((_, c) => `${colName(c)}${a.slice(1)}`))
+    : task.answer;
+  const flags = !solved && checked && checked === picked ? flaggedCells(outcome) : [];
+  const content = selected ? spotCell(task, selected) : null;
+  const choose = (cell: string) => { setPicked(cell); setTyped(null); };
+  return (
+    <form className="challenge evidence-hunt" noValidate onSubmit={(e) => { e.preventDefault(); const cell = picked ?? normaliseAddress(typed) ?? (typed ?? ''); setChecked(cell); onSubmit(cell); }}>
+      <p className="prompt" id={`${id}-prompt`}>{prompt}</p>
+      <div className="formula-bar name-bar">
+        <label className="sr-only" htmlFor={`${id}-name`}>Name box: type a cell address and press Enter to select it</label>
+        <input
+          id={`${id}-name`} className="name-box" value={typed ?? selected ?? ''} readOnly={solved} placeholder="B3" maxLength={6}
+          onChange={(e) => setTyped(e.target.value)} spellCheck={false} autoCapitalize="characters" autoComplete="off"
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' || solved) return;
+            const cell = normaliseAddress(typed);
+            if (cell) { e.preventDefault(); choose(cell); }
+          }}
+        />
+        <span className="fx" aria-hidden="true">fx</span>
+        <output className="name-value" htmlFor={`${id}-name`} aria-live="polite">
+          {content?.inside ? (content.value === null || content.value === undefined || content.value === '' ? <span className="placeholder">empty</span> : String(content.value)) : <span className="placeholder">Select a cell</span>}
+        </output>
+      </div>
+      <div className="workshop-stage">
+        <LedgerGrid
+          columns={columns} rows={rows} values={workValues} label={`Ledger: select the ${task.select === 'row' ? 'row' : 'cell'} that answers. ${prompt}`}
+          highlight={flags} good={solved && !revealed ? answerCells : []}
+          pick={{ selected, onPick: choose, columns: task.columns.length, mode: task.select, disabled: solved }}
+        />
+        {aside}
+      </div>
+      {working && !solved && (
+        <div className="working">
+          <label className="prompt" htmlFor={`${id}-work`}>Your working in column {workCol} <span className="hint">(optional, never scored; filled down to row {last})</span></label>
+          <div className="formula-bar">
+            <span className="cell-name" aria-hidden="true">{workCol}2</span>
+            <span className="fx" aria-hidden="true">fx</span>
+            <input id={`${id}-work`} className="formula-input" value={work} onChange={(e) => setWork(e.target.value)} placeholder="=" spellCheck={false} autoCapitalize="off" autoCorrect="off" />
+          </div>
+        </div>
+      )}
+      <InvalidMessage text={invalid} />
+      {!solved && <Actions><button type="submit" className="btn btn-primary btn-lg">{submitLabel}</button></Actions>}
+    </form>
+  );
+}
+
+export function SpotView(props: GameProps<SpotScene>) {
+  const { quest, scene, result, outcome, onCheck, invalid } = props;
+  const state = reactionState(result.solved, result.revealed, Boolean(outcome && !outcome.correct));
+  return (
+    <GameFrame mechanic={scene.mechanic ?? 'Evidence hunt'} icon="🔍">
+      <Speech quest={quest} scene={scene} />
+      <EvidencePicker
+        id={`spot-${scene.id}`} task={scene} prompt={scene.prompt} solved={result.solved} revealed={result.revealed} outcome={outcome}
+        invalid={invalid} working={scene.scratch} submitLabel={scene.boss ? 'Show Hrolf' : 'Point it out'} onSubmit={(cell) => onCheck({ cell } as Answer)}
+        aside={scene.consequence ? <MarketReaction kind={scene.consequence} state={state} /> : undefined}
+      />
+      <GameFeedback {...props} revealedAnswer={<CodeBlock code={evidenceText(scene)} label="The evidence" />} />
     </GameFrame>
   );
 }
@@ -257,6 +394,7 @@ export function MatchView(props: GameProps<MatchScene>) {
   const { quest, scene, result, onCheck, invalid, outcome } = props;
   const [pairs, setPairs] = useState<Record<string, string>>({});
   const [picked, setPicked] = useState<string | null>(null);
+  const [menus, setMenus] = useState(false);
   const solved = result.solved;
   const shown = solved ? (correctAnswer(scene) as { pairs: Record<string, string> }).pairs : pairs;
   const wrong = new Set((outcome?.issues ?? []).map((i) => i.id));
@@ -277,8 +415,10 @@ export function MatchView(props: GameProps<MatchScene>) {
       <Speech quest={quest} scene={scene} />
       <form className="challenge" noValidate onSubmit={(e) => { e.preventDefault(); onCheck({ pairs: { ...pairs } }); }}>
         <p className="prompt">{scene.prompt}</p>
-        <p className="hint">Choose a rune on the left, then its partner on the right — or use each rune’s menu.</p>
-        <div className="match-board">
+        <p className="hint">Tap a rune, then the cause it belongs to.{' '}
+          {!solved && <button type="button" className="btn btn-ghost btn-sm" aria-pressed={menus} onClick={() => setMenus((m) => !m)}>{menus ? 'Hide the menus' : 'Use menus instead'}</button>}
+        </p>
+        <div className={`match-board${picked ? ' is-choosing' : ''}`}>
           <ul className="match-col" aria-label="Runes">
             {scene.left.map((l) => {
               const partner = scene.right.findIndex((r) => r.id === shown[l.id]);
@@ -288,11 +428,11 @@ export function MatchView(props: GameProps<MatchScene>) {
                     <span className={l.code ? 'mono' : ''}>{l.text}</span>
                     {partner >= 0 && <span className="match-tag" aria-hidden="true">{letter(partner)}</span>}
                   </button>
-                  <label className="sr-only" htmlFor={`m-${scene.id}-${l.id}`}>Partner for {l.text}</label>
+                  {menus && !solved && <><label className="sr-only" htmlFor={`m-${scene.id}-${l.id}`}>Partner for {l.text}</label>
                   <select id={`m-${scene.id}-${l.id}`} className="match-select" value={shown[l.id] ?? ''} disabled={solved} onChange={(e) => setPairs((p) => { const next = { ...p }; for (const k of Object.keys(next)) if (next[k] === e.target.value) delete next[k]; if (e.target.value) next[l.id] = e.target.value; else delete next[l.id]; return next; })}>
                     <option value="">Not paired</option>
                     {scene.right.map((r, i) => <option key={r.id} value={r.id}>{letter(i)}: {r.text}</option>)}
-                  </select>
+                  </select></>}
                 </li>
               );
             })}
@@ -310,7 +450,7 @@ export function MatchView(props: GameProps<MatchScene>) {
         <InvalidMessage text={invalid} />
         {!solved && <Actions><button type="submit" className="btn btn-primary btn-lg">Break the curse</button></Actions>}
       </form>
-      <Feedback {...props} />
+      <GameFeedback {...props} />
     </GameFrame>
   );
 }
@@ -347,13 +487,17 @@ export function GambitView(props: GameProps<GambitScene>) {
   const values = useMemo(() => previewColumn(solved ? scene.solution.formula : formula, GAMBIT_COLUMNS, rows, 'F2', `F${scene.items.length + 1}`), [formula, rows, scene, solved]); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (i: number, n: number) => setOrders((o) => o.map((v, j) => (j === i ? Math.max(0, Math.min(scene.maxOrder, Math.round(n) || 0)) : v)));
   const over = spend > scene.purse;
+  const state = reactionState(solved, result.revealed, Boolean(outcome && !outcome.correct));
   const tokens = ['=', 'B2', 'C2', 'D2', 'E2', '*', '-', '+', 'MIN(', 'MAX(', ',', ')', '(', 'SUM('];
   return (
     <GameFrame mechanic={scene.mechanic ?? "Trader's Gambit"} icon="⚓">
       <Speech quest={quest} scene={scene} />
       <form className="challenge" noValidate onSubmit={(e) => { e.preventDefault(); onCheck({ orders: [...orders], formula }); }}>
         <p className="prompt">{scene.prompt}</p>
-        <LedgerGrid columns={GAMBIT_COLUMNS} rows={rows} target="F2" fillDownTo={`F${scene.items.length + 1}`} values={values} label="Restock ledger (Order column E is set below)" />
+        <div className="workshop-stage">
+          <LedgerGrid columns={GAMBIT_COLUMNS} rows={rows} target="F2" fillDownTo={`F${scene.items.length + 1}`} values={values} solved={solved && !result.revealed} label="Restock ledger (Order column E is set below)" />
+          {scene.consequence && <MarketReaction kind={scene.consequence} state={state} />}
+        </div>
         <FormulaBuilder id={`gb-${scene.id}`} tokens={tokens} value={solved ? scene.solution.formula : formula} onChange={setFormula} disabled={solved} cell="F2" label="Profit formula for F2" />
         <fieldset className="orders">
           <legend className="prompt">Orders (column E)</legend>
@@ -377,7 +521,7 @@ export function GambitView(props: GameProps<GambitScene>) {
         {!solved && <Actions><button type="submit" className="btn btn-primary btn-lg">Send the order to the ship</button></Actions>}
       </form>
       {outcome?.trade && <TradeTable report={outcome.trade} />}
-      <Feedback {...props} revealedAnswer={<CodeBlock code={`${scene.solution.formula}\nOrders: ${scene.items.map((it, i) => `${it.name} ${scene.solution.orders[i]}`).join(', ')} → profit ${scene.items.reduce((s, it, i) => s + tradeProfit(it, scene.solution.orders[i]), 0)}`} label="One winning plan" />} />
+      <GameFeedback {...props} revealedAnswer={<CodeBlock code={`${scene.solution.formula}\nOrders: ${scene.items.map((it, i) => `${it.name} ${scene.solution.orders[i]}`).join(', ')} → profit ${scene.items.reduce((s, it, i) => s + tradeProfit(it, scene.solution.orders[i]), 0)}`} label="One winning plan" />} />
     </GameFrame>
   );
 }

@@ -14,7 +14,7 @@ The slice is one Excel quest that runs through the full game loop:
 | Discover | The Trading Market now has a procedural market stall (crates, coin stack, balance scales, lantern) beside Tove. |
 | Experiment | Live ledger previews and the bench of formula fragments. Previews never count as attempts. |
 | Solve | 13 rounds across 7 mechanics, all evaluated by the engine. |
-| See consequences | The scales level or tip, coins pop, crates lift. In 3D, the stall's coins hop or its crates shudder. The Trader's Gambit reports the real outcome of the player's own orders. |
+| See consequences | Ledger cells turn green or red where they were checked; the scales level or tip, coins pop, crates lift. In 3D, the stall stands in the camera's view beside Tove: its coins hop and sparks rise from it, or its crates shudder; its lantern turns green-gold or red (a colour change, so it also shows with reduced motion). The Trader's Gambit reports the real outcome of the player's own orders. |
 | Unlock | The Great Hall opens only when the boss mission (Hrolf's audit) reaches 70% mastery. A rising beam and sparks reveal it on the map. |
 | Recall | The Rune Wheel draws only on concepts already taught, weighted towards weak or fading ones. Practice rounds can be replayed with fresh data. |
 | Master | Per-concept records (seen → practised → demonstrated → mastered). Mastered requires first-time success on a later day. |
@@ -28,17 +28,21 @@ All are pure TypeScript in `src/engine/` and unit-tested. The UI is in `src/ui/g
 | Ledger Workshop | `workshop` | The assembled formula is run by excel-lite, with fill-down. Every target cell is compared. Required functions are checked. Typed-in numbers are rejected. | Tap or Enter on fragments; Backspace removes one; *Type it instead* |
 | Repair Mission | `repair` | The diagnosis must match. The fix must pass on the ledger **and** on a second dataset, so a typed result cannot pass. | Radio buttons and a text field |
 | Rune-word (Wordle-style) | `runeword` | Wordle scoring, repeated letters included. Guesses must be real Excel function names: a dictionary of 377 names generated from the encyclopedia inventory. Invalid guesses are not counted. Solving within par counts as "first time". | Text field; the on-screen keyboard is optional |
-| Rune Wheel | `wheel` | The spin is seeded and reproducible, and cannot be re-spun. The landed segment's challenge is evaluated: four of six segments are formulas run by excel-lite (one filled down, one requiring a cell reference rather than a typed constant); two remain multiple choice. The spin never decides a payout. | Spin button; reduced motion lands instantly |
-| Rune match | `match` | Exact pairs; each wrong pair is explained. | A select menu per rune |
+| Rune Wheel | `wheel` | The spin is seeded and reproducible, and cannot be re-spun. The landed segment's challenge is evaluated: five of six segments are formulas run by excel-lite (one filled down, one requiring a cell reference rather than a typed constant, one needing brackets); one is an evidence pick. None is multiple choice. The spin never decides a payout. | Spin button; reduced motion lands instantly |
+| Rune match | `match` | Exact pairs; each wrong pair is explained. | Tap pairs (buttons, keyboard-operable); a select menu per rune behind "Use menus instead" |
 | Trader's Gambit | `gambit` | The player's profit formula is checked row by row against the true outcome of **their** orders. It is also probed with orders above demand and zero orders, so a formula that ignores demand fails. The purse and target profit are enforced. | Number fields with +/− steppers |
-| Explain the outcome / Mystery | `choice` with a `sheet` | Option IDs. In the boss, the correct answer depends on the run's data variant. | Radio buttons |
+| Evidence hunt | `spot` | The player selects the cell (or, for a decision, the row) in the ledger that proves the point. The engine checks the address; each wrong pick is told what that cell actually holds. In the boss the answer cell depends on the run's data variant. An optional working column lets the player calculate first; it is never scored and cannot be selected as evidence. | Every cell is a button; or type the address in the name box and press Enter, as in Excel |
 
 **Boss mission (Hrolf's audit).** Five steps of mixed types: workshop, repair, investigation, rune-word and verdict.
 
-- Workshop, repair and the two choice steps each have three data variants, chosen by the run's seed. A memorised answer from one run fails on another (tested). The rune-word step is fixed.
+- Workshop, repair and the two evidence steps each have three data variants, chosen by the run's seed. A memorised answer from one run fails on another (tested). The rune-word step is fixed.
 - The first hint is held back until the second miss.
 - Step titles never name the function to use.
-- Boss workshop and repair steps show no live preview: the formula is only checked when submitted.
+- Boss workshop and repair steps show no live preview: the formula is only checked when submitted. After a check, the ledger shows what the checked formula produced.
+
+**No plain multiple choice.** The quest's four former multiple-choice steps (find the cell, explain the restock, the missing coins, the verdict) are evidence hunts, and the wheel's two former choice segments are an evidence pick and a formula. The `choice` type still exists for the other (course) quests, which are unchanged.
+
+**Feedback happens in the scene.** After a check, the ledger marks each target cell right (green) or wrong (red) in place, the market reaction beside it (scales, coins, crates) moves, and the 3D stall reacts. A short strip says the same in words, with the XP earned; "Why it works" is a disclosure rather than a panel every round. A revealed answer still shows the full explanation. All of this is plain text and table markup, so it reaches screen readers; animation is removed by the reduced-motion setting.
 
 ## 3. Medals, XP and the optional silver purse
 
@@ -46,7 +50,7 @@ These are three separate things. Only mastery evidence decides a medal or an unl
 
 **XP** is earned for solving rounds (more for right-first-time). It is never staked and never lost.
 
-**Medals** come from demonstrated mastery only (`computeMedal` in `game-engine.ts`):
+**Medals** come from demonstrated mastery only (`computeMedal` in `game-engine.ts`). A game quest shows no separate star rating: its stars simply mirror the medal (Gold 3, Silver 2, Bronze 1, none 0), so the island-wide star total stays consistent.
 
 | Medal | Requirements |
 |---|---|
@@ -118,7 +122,7 @@ CAPSTONE · The Jarl's Council (cross-domain mystery; maths/statistics woven in)
   - all CSS animations are cut by the global rules in `base.css`;
   - the wheel lands instantly;
   - markers lift without easing;
-  - the 3D stall stays still;
+  - the 3D stall stays still (its lantern still changes colour);
   - celebration bursts are skipped.
 - Every drag action has a tap, keyboard or select alternative. There are no timed challenges in this slice.
 
@@ -126,10 +130,10 @@ CAPSTONE · The Jarl's Council (cross-domain mystery; maths/statistics woven in)
 
 | Check | Result |
 |---|---|
-| `npm test` (Vitest) | **183 passed**: 99 existing (2 updated for the new design), plus mechanics, medal/wager, excel-lite audit and save/replay tests |
+| `npm test` (Vitest) | **194 passed**: 99 existing (2 updated for the new design), plus mechanics, evidence-hunt, medal/rating, wager, excel-lite audit and save/replay tests |
 | `npm run typecheck` | Clean |
 | `npm run build` | Succeeds |
-| `npm run e2e` | **34/34 passed**. P9-6c rewritten for the new quest; two assertions updated for the new title and save v4 |
+| `npm run e2e` | **34/34 passed**. P9-6c rewritten for the new quest (evidence picks, in-ledger verdicts, match menu toggle); two assertions updated for the new title and save v4 |
 | Scripted full play-through, desktop 1360×860 (Chromium, software WebGL) | Gold with stakes placed; Great Hall unlocked; 11 concept records; no console errors |
 | Same, phone viewport (390×844, touch) | Gold; no console errors |
 | Same, graphics off (2D fallback) | Gold; no console errors |

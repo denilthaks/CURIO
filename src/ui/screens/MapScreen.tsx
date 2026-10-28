@@ -4,7 +4,7 @@ import { navigate } from '../../app/router';
 import { announce, focusElement } from '../../app/a11y';
 import { destinationStatus, moduleForQuest, questRequirement, questStatus, unlockRequirement, nextQuestAt, type DestinationStatus, type QuestStatus } from '../../engine/progression';
 import { questRecord, withReplay } from '../../engine/progress-store';
-import { levelFor, restoreRun } from '../../engine/game-engine';
+import { isGameQuest, levelFor, restoreRun } from '../../engine/game-engine';
 import { totalXp, totalStars } from '../../engine/progress-store';
 import type { WorldRenderer } from '../../world/WorldRenderer';
 import type { StageStatus } from '../WorldStage';
@@ -124,7 +124,7 @@ export function MapScreen({ selected, renderer, stageStatus, webgl }: Props) {
                         <p>{quest.intro}</p>
                         {record.completed && (
                           <p className="meta">
-                            Best: {record.bestXp} XP · <Stars count={record.bestStars} />
+                            Best: {record.bestXp} XP{!isGameQuest(quest) && <> · <Stars count={record.bestStars} /></>}
                             {MEDAL_ICON[record.bestMedal] && <> · <span aria-hidden="true">{MEDAL_ICON[record.bestMedal]}</span> {record.bestMedal} medal</>}
                             {!record.mastered && <> · <span className="warn-text">final challenge not yet passed</span></>}
                           </p>
