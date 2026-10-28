@@ -308,6 +308,14 @@ export function validateWorld(world: unknown, questIds: string[] = []): string[]
       if (!d.quests?.length) errors.push(`Destination "${d.id}" is not planned but has no quests.`);
     }
   });
+  const order = w?.recommendedOrder;
+  if (order !== undefined) {
+    if (!Array.isArray(order)) errors.push('recommendedOrder must be a list of quest ids.');
+    else {
+      order.forEach((q) => questIds.includes(q) || errors.push(`recommendedOrder references unknown quest "${q}".`));
+      duplicates(order).forEach((q) => errors.push(`recommendedOrder lists "${q}" twice.`));
+    }
+  }
   return errors;
 }
 

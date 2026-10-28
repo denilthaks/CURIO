@@ -11,6 +11,37 @@ export const SCHEMA_VERSION = 4;
 export const MEDALS: Medal[] = ['none', 'bronze', 'silver', 'gold'];
 export const EMBLEMS = ['fox', 'owl', 'deer', 'badger'] as const;
 export const MAX_NAME_LENGTH = 24;
+
+/**
+ * Optional onboarding preferences, chosen (or skipped) on the identity screen.
+ * They are stored only: nothing in the game changes because of them yet.
+ */
+export const BACKGROUNDS = ['non-technical-beginner', 'technical', 'student', 'personal-development'] as const;
+export const GOALS = ['data-analyst', 'business-analyst', 'data-engineer', 'ai-engineer', 'general'] as const;
+export type Background = (typeof BACKGROUNDS)[number];
+export type Goal = (typeof GOALS)[number];
+export const BACKGROUND_LABELS: Record<Background, string> = {
+  'non-technical-beginner': 'Non-technical beginner',
+  technical: 'Technical background',
+  student: 'Student',
+  'personal-development': 'Personal skills development',
+};
+export const GOAL_LABELS: Record<Goal, string> = {
+  'data-analyst': 'Data Analyst',
+  'business-analyst': 'Business Analyst',
+  'data-engineer': 'Data Engineer',
+  'ai-engineer': 'AI Engineer',
+  general: 'General learning / personal development',
+};
+
+export interface Player {
+  name: string;
+  emblem: Emblem;
+  /** Absent when skipped. */
+  background?: Background;
+  /** Absent when skipped. */
+  goal?: Goal;
+}
 const MAX_XP = 100000;
 
 export type Emblem = (typeof EMBLEMS)[number];
@@ -40,7 +71,7 @@ export interface QuestRecord {
 
 export interface Progress {
   version: number;
-  player: { name: string; emblem: Emblem } | null;
+  player: Player | null;
   quests: Record<string, QuestRecord>;
   achievements: string[];
   /** Lessons (theory cards) the player has read, as "questId/sceneId". */
@@ -82,10 +113,14 @@ export function cleanName(value: unknown): string {
 function sanitizePlayer(raw: unknown): Progress['player'] {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
-  return {
+  const player: Player = {
     name: cleanName(r.name) || 'Pathfinder',
     emblem: (EMBLEMS as readonly string[]).includes(r.emblem as string) ? (r.emblem as Emblem) : EMBLEMS[0],
   };
+  // Preferences are optional: unknown or missing values are simply left out.
+  if ((BACKGROUNDS as readonly string[]).includes(r.background as string)) player.background = r.background as Background;
+  if ((GOALS as readonly string[]).includes(r.goal as string)) player.goal = r.goal as Goal;
+  return player;
 }
 
 function sanitizeSettings(raw: unknown): Settings {
@@ -259,8 +294,8 @@ export function questRecord(progress: Progress, questId: string): QuestRecord {
   return progress.quests[questId] || emptyRecord();
 }
 
-export function withPlayer(progress: Progress, name: string, emblem: string): Progress {
-  return { ...progress, player: sanitizePlayer({ name, emblem }) };
+export function withPlayer(progress: Progress, name: string, emblem: string, prefs: { background?: string | null; goal?: string | null } = {}): Progress {
+  return { ...progress, player: sanitizePlayer({ name, emblem, background: prefs.background ?? undefined, goal: prefs.goal ?? undefined }) };
 }
 
 export function withSettings(progress: Progress, settings: Partial<Settings>): Progress {

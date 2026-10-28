@@ -389,3 +389,11 @@ In every case the 3D stage never covered the top bar and there were no page erro
 **Regression tests:**
 - `tests/routing.test.ts`: 5 tests covering route parsing, the redirect, the return path, a save with progress but no player, and that locked quests stay guarded.
 - e2e check **L5b**: the original failure, played in Chromium, plus a check that a brand-new player still starts at The Missing Signal.
+
+## 13. Onboarding preferences and minimal opening-sequence change
+
+- **Onboarding:** two optional groups on the existing identity screen, "Your background" and "Your learning goal", each with a default "Skip". Choices are stored with the player in the existing save (no schema change; older saves load unchanged; unknown values are dropped). They are unused by the game: no role-based paths, content or unlocks.
+- **Order:** unlock rules are unchanged. The map lists Excel before Python, and the results page suggests the next quest by a recommended order (Missing Signal → Market → SQL → Python → Dashboard → Star Chart). Locked quests are never suggested, and existing players keep everything.
+- **Not changed:** quest content (including The Merchant's Ledger), quest numbers, `curriculum.json`, medals, scoring, saves.
+- **Gaps documented for later:** `docs/OPENING-SEQUENCE-REVIEW.md` (no digital and data foundations content yet, among others).
+- **Tests:** `tests/onboarding-and-order.test.ts` (13); e2e check L5c (onboarding choose and skip, by keyboard too).

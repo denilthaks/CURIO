@@ -2,7 +2,7 @@ import { useGame } from '../../app/game';
 import { navigate } from '../../app/router';
 import { computeMedal, isGameQuest, isLegacyRun, computeSilver, conceptReport, isChallenge, isFirstTry, levelFor, masteryEvidence, nextMedalHint, resultFor, restoreRun, skillReport, stakesPlaced, wagerNet, type Medal, type SkillStatus } from '../../engine/game-engine';
 import { questRecord, totalXp, withReplay } from '../../engine/progress-store';
-import { destinationForQuest, nextQuestAt } from '../../engine/progression';
+import { destinationForQuest, recommendedNext } from '../../engine/progression';
 import { Stars } from '../Stars';
 
 const SKILL_ICON: Record<SkillStatus, string> = { demonstrated: '✓', 'with-hints': '✓', reviewed: '💡', 'not-yet': '○' };
@@ -41,7 +41,7 @@ export function CompleteScreen({ questId, feedbackUrl }: { questId: string; feed
   const concepts = conceptReport(quest, run);
   const rounds = quest.scenes.filter(isChallenge);
   // Suggest the next playable quest anywhere on the island.
-  const nextQuest = world.destinations.map((d) => nextQuestAt(d, quests, progress)).find((q) => q && q.id !== questId) ?? null;
+  const nextQuest = recommendedNext(world, quests, progress, questId);
   const nextDest = nextQuest ? destinationForQuest(world, nextQuest.id) : null;
 
   return (

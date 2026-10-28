@@ -59,6 +59,32 @@ export function nextQuestAt(destination: Destination, quests: Map<string, Quest>
   return null;
 }
 
+/**
+ * The quest to suggest next: the first playable (available or in-progress)
+ * quest in the world's recommended order, then any other in map order.
+ * A suggestion only; unlock rules are unchanged.
+ */
+export function recommendedNext(world: World, quests: Map<string, Quest>, progress: Progress, excludeId?: string): Quest | null {
+  const playable = (id: string) => {
+    const quest = quests.get(id);
+    const dest = quest ? world.destinations.find((d) => d.quests.includes(id)) : undefined;
+    if (!quest || !dest || id === excludeId) return null;
+    const status = questStatus(quest, dest, progress);
+    return status === 'available' || status === 'in-progress' ? quest : null;
+  };
+  for (const id of world.recommendedOrder ?? []) {
+    const q = playable(id);
+    if (q) return q;
+  }
+  for (const d of world.destinations) {
+    for (const id of d.quests) {
+      const q = playable(id);
+      if (q) return q;
+    }
+  }
+  return null;
+}
+
 export function unlockRequirement(destination: Destination, quests: Map<string, Quest>, progress: Progress): string {
   if (destination.unlockedBy === 'planned') return 'Planned for a future update. There is no playable quest here yet.';
   const missing = destination.unlockedBy.filter((id) => !isQuestMastered(progress, id));

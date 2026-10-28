@@ -358,6 +358,11 @@ export interface Destination {
 
 export interface World {
   schemaVersion: 1;
+  /**
+   * The suggested order for the "Next" quest (a recommendation only: it never
+   * locks anything). Quests not listed fall back to the map order.
+   */
+  recommendedOrder?: string[];
   destinations: Destination[];
 }
 
