@@ -878,6 +878,34 @@ const tests = [];
     await c.close();
   });
 
+  await run('L5c', 'Onboarding: background and learning goal are optional; choices are saved, skipping saves none', async () => {
+    const c = await browser.newContext({ viewport: { width: 1366, height: 820 } });
+    const p = await c.newPage();
+    watch(p, 'onboarding');
+    await p.goto(`${URL_BASE}#/start`);
+    await p.waitForSelector('#start-title');
+    expect(await p.getByRole('group', { name: /Your background/ }).count() === 1, 'background group missing');
+    expect(await p.getByRole('group', { name: /Your learning goal/ }).count() === 1, 'goal group missing');
+    // Choose both (the background by keyboard), then begin.
+    await p.getByLabel(/What should Mira call you/).fill('Chooser');
+    await p.getByRole('radio', { name: 'Student' }).focus();
+    await p.keyboard.press('Space');
+    await p.getByRole('radio', { name: 'Data Analyst' }).check();
+    await p.getByRole('button', { name: 'Begin the quest' }).click();
+    await p.waitForURL(/#\/quest\/missing-signal$/);
+    let saved = await p.evaluate(() => JSON.parse(localStorage.getItem('curiotrail.progress')).player);
+    expect(saved.background === 'student' && saved.goal === 'data-analyst', JSON.stringify(saved));
+    // Skip both: nothing is stored for them.
+    await p.evaluate(() => localStorage.removeItem('curiotrail.progress'));
+    await p.goto(`${URL_BASE}#/start`);
+    await p.reload();
+    await p.getByRole('button', { name: 'Begin the quest' }).click();
+    await p.waitForURL(/#\/quest\/missing-signal$/);
+    saved = await p.evaluate(() => JSON.parse(localStorage.getItem('curiotrail.progress')).player);
+    expect(!('background' in saved) && !('goal' in saved), JSON.stringify(saved));
+    await c.close();
+  });
+
   // ---- Mobile ----
   await run('A16/H', 'Mobile layout: home, map bottom sheet, quest panel; no sideways scroll; touch targets', async () => {
     const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });

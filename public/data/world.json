@@ -1,5 +1,13 @@
 {
   "schemaVersion": 1,
+  "recommendedOrder": [
+    "missing-signal",
+    "market-ledger",
+    "the-ledger",
+    "broken-tally",
+    "great-hall-dashboard",
+    "star-chart"
+  ],
   "destinations": [
     {
       "id": "signal-woods",
@@ -18,23 +26,6 @@
       "landmark": "The forest hamlet with the round signal tower on the island's south shore."
     },
     {
-      "id": "viking-workshop",
-      "name": "The Viking Workshop",
-      "theme": "Python",
-      "icon": "🛠️",
-      "quests": [
-        "broken-tally"
-      ],
-      "unlockedBy": [
-        "missing-signal"
-      ],
-      "position": [
-        -68,
-        -22
-      ],
-      "landmark": "The timber workshops west of the village square."
-    },
-    {
       "id": "trading-market",
       "name": "The Trading Market",
       "theme": "Excel and spreadsheets",
@@ -50,6 +41,23 @@
         -75
       ],
       "landmark": "The harbour market beside the longship docks."
+    },
+    {
+      "id": "viking-workshop",
+      "name": "The Viking Workshop",
+      "theme": "Python",
+      "icon": "🛠️",
+      "quests": [
+        "broken-tally"
+      ],
+      "unlockedBy": [
+        "missing-signal"
+      ],
+      "position": [
+        -68,
+        -22
+      ],
+      "landmark": "The timber workshops west of the village square."
     },
     {
       "id": "great-hall",

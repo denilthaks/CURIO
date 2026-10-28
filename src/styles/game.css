@@ -231,6 +231,16 @@
 .emblem-option:hover .emblem-card { border-color: var(--mist-muted); }
 .emblem-option input:checked + .emblem-card { border-color: var(--teal-bright); background: var(--night-700); }
 .emblem-option input:checked + .emblem-card .emblem-label::after { content: " ✓"; color: var(--teal-bright); }
+/* Optional onboarding preferences (background, learning goal) */
+.pref-grid { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pref-option { position: relative; display: block; cursor: pointer; }
+.pref-option input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.pref-card { display: inline-flex; align-items: center; min-height: 44px; padding: 0.45rem 0.9rem; border: 2px solid var(--night-600); border-radius: 999px; color: var(--mist-strong); font-weight: 600; }
+.pref-option--skip .pref-card { border-style: dashed; color: var(--mist-muted); }
+.pref-option:hover .pref-card { border-color: var(--mist-muted); }
+.pref-option input:checked + .pref-card { border-color: var(--teal-bright); background: var(--night-700); }
+.pref-option input:checked + .pref-card::after { content: " ✓"; color: var(--teal-bright); }
+.pref-option input:focus-visible + .pref-card { box-shadow: var(--focus); }
 .emblem-option input:focus-visible + .emblem-card { box-shadow: var(--focus); }
 
 /* ---- Map (Screen B) ---- */
