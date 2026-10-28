@@ -318,3 +318,15 @@
   .ledger--pick .sheet-header { font-size: 0.72rem; line-height: 1.2; overflow-wrap: normal; word-break: normal; }
   .ledger--pick td.sheet-header .cell-btn { padding: 0.3rem 0.25rem; }
 }
+
+/* Phones, during a quest or practice round: the site top bar scrolls away with
+   the page so the ledger gets the space; only the quest HUD stays pinned.
+   (relative, not static, keeps the bar above the fixed 3D stage while it is
+   on screen.) Navigation is unchanged in the DOM and tab order: Shift+Tab
+   back to it, or scroll up, and it comes into view. */
+@media (max-width: 899px) {
+  .app--quest .topbar, .app--practice .topbar { position: relative; }
+  .app--quest .quest-hud--pinned { top: 0; }
+  .app--quest .quest-panel:has(.quest-hud--pinned) .scene,
+  .app--quest .quest-panel:has(.quest-hud--pinned) .scene * { scroll-margin-top: 7rem; }
+}

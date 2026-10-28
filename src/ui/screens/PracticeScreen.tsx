@@ -56,7 +56,7 @@ export function PracticeScreen({ questId, sceneId, onPose, onWorld, reducedMotio
     setInvalid(null);
     setRun(next);
     setOutcome(out);
-    if (out.correct) update((p) => recordStep(p, full, next, raw));
+    if (engine.stepFinished(out)) update((p) => recordStep(p, full, next, raw));
     onWorld?.(out.correct ? 'right' : 'wrong');
   };
   const onReveal = () => {

@@ -11,7 +11,8 @@ export function RoundTrack({ quest, run }: { quest: Quest; run: Run }) {
   const done = challenges.filter((s) => engine.resultFor(run, s.id).solved).length;
   return (
     <div className="round-track">
-      <p className="sr-only">Round {Math.min(done + 1, challenges.length)} of {challenges.length}. {done} solved.</p>
+      {/* Same words as the visible round badge (engine.roundLabel), plus overall progress. */}
+      <p className="sr-only">{engine.roundLabel(quest, current.id)?.text ?? 'Story'}. {done} of {challenges.length} challenges solved.</p>
       <ol className="runes" aria-hidden="true">
         {challenges.map((s) => {
           const r = engine.resultFor(run, s.id);

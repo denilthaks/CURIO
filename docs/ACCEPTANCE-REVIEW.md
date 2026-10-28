@@ -132,7 +132,7 @@ The organiser's start-state save snippet is checked by a unit test, so the plan 
 1. Two of the four verdict rows can still be guessed once the profit column is right. At that point the decision is reading the smallest number, which is the intended skill, but a guesser can still pass with reduced credit.
 2. Hints are per step, not per mistake.
 3. The rune-word weight (0.5) is a design judgement, not calibrated against learner data.
-4. Phone layout: the sticky top bar plus the pinned HUD cover 23–41% of the screen, depending on phone and text size (measured in section 9.3; the earlier "about 35%" was an estimate). Evidence ledgers with a working column fit at 390 px.
+4. Phone layout: superseded by section 10.3. During a quest the top bar now scrolls away and only the HUD stays pinned (10–14% of the screen, measured). Evidence ledgers with a working column fit at 390 px.
 5. Performance on real devices is unmeasured (software rendering in tests runs at 6–9 fps).
 6. Screen-reader behaviour is designed and code-reviewed, but not yet tested with real assistive technology.
 7. Educational effectiveness is unknown. It needs the sessions in `docs/USABILITY-TEST.md` at minimum, and a proper learner study before any claim.
@@ -258,4 +258,92 @@ A related small inconsistency was found (not fixed): the visible badge says "Rou
 3. No real device, screen reader or player has used the chapter. `docs/USABILITY-TEST.md` is still a plan with no findings.
 4. Rendering performance on real phones is unknown (5–8 fps in headless software rendering says nothing about real GPUs).
 5. Educational effectiveness is not established by any of the above.
+
+
+## 10. Fix pass (approved decisions D1, D2; fixes F1, F2; mobile top bar)
+
+This section supersedes the open items in section 9 (D1, D2, F1, F2 and the mobile proposal).
+
+### 10.1 Decisions implemented
+
+**D1 (revealed boss answers).**
+
+- `computeMedal` now returns **Bronze at most** when any boss step was revealed, whether the player asked for the answer or ran out of picks.
+- **Unchanged:**
+  - the revealed step's credit (0) and the boss score;
+  - the 70% pass rule;
+  - XP (per step; a revealed step already earned none);
+  - stars (they mirror the medal, so 1);
+  - the badge, which is given on a pass;
+  - the Great Hall unlock.
+- The results card explains the cap: "Bronze at most: an answer in the final challenge was revealed…".
+- A revealed round outside the boss still allows Silver, as before.
+
+**D2 (threshold).**
+
+- Pass means a boss score **≥ 70%**, and exactly 70% passes.
+- The comparison uses the score rounded to three decimals, so floating-point error cannot flip the boundary.
+- This is documented as the current design rule, **not** a threshold validated by learner research (`docs/GAME-FIRST-SLICE.md`).
+
+### 10.2 Fixes
+
+- **F1:** a new `stepFinished(outcome)` in the engine is true for a right answer or a pick budget running out (`outcome.locked`). The quest and practice screens now record the concept event on either.
+  - A step can finish only once: later picks are refused and a reveal after a lock is a no-op. So the event cannot be double-counted.
+  - A locked step is recorded as revealed: no first-time credit, and no context or day towards "mastered". It cannot inflate mastery.
+- **F2:** a new `roundLabel(quest, sceneId)` in the engine is the single source for the visible badge and the HUD's screen-reader text. Both say "Round 3 of 12" or "Boss stage 2 of 5"; the screen-reader text adds "n of 17 challenges solved". The boss badge wording changed from "Boss · stage 2 of 5" to "Boss stage 2 of 5".
+
+### 10.3 Mobile top bar
+
+On screens narrower than 900 px, during a quest or practice round only, the site top bar now scrolls away and only the quest HUD stays pinned (`src/styles/games.css`). I used `position: relative` rather than the proposed `static`: the 3D stage is a fixed layer, and `static` would let it paint over the bar while the bar is on screen. Desktop and every other screen are unchanged.
+
+Measured in Chromium at phone sizes on the first evidence step, with reduced motion on for the large-text runs:
+
+| Viewport | Text | Covered when scrolled (before → now) | Focused controls hidden under the HUD (30 Tab presses) | Nav link visible when focused | Top bar back at the top on scroll-up | Landmarks | HUD screen-reader text |
+|---|---|---|---|---|---|---|---|
+| 390×844 | normal | 23% → **10%** | none | yes | yes | 1 banner, 1 "Main" nav | "Round 1 of 12. 0 of 17 challenges solved." (badge: "Round 1 of 12") |
+| 390×844 | large | 31% → **11%** | none | yes | yes | same | same |
+| 360×640 | normal | 30% → **13%** | none | yes | yes | same | same |
+| 360×640 | large | 41% → **14%** | none | yes | yes | same | same |
+
+In every case the 3D stage never covered the top bar and there were no page errors.
+
+- **Unchanged:** keyboard order and screen-reader landmarks; the DOM is unchanged.
+- **Reduced motion:** unaffected (no animation involved).
+- **Trade-off:** the site navigation and total-XP bar are out of view during a quest until the player scrolls up or tabs back to them; both work. This was measured, not assumed. A real screen-reader and real-device check is still needed (section 8 of `docs/USABILITY-TEST.md`).
+
+### 10.4 Tests added in this pass (`tests/boss-scoring-audit.test.ts`)
+
+- **D1:**
+  - over all 1024 combinations, every passing combination with a boss step at 0 is Bronze, and none without one is capped;
+  - the cap leaves the boss score, the pass, XP, stars (1), the best medal and the Great Hall as expected;
+  - a step locked by the pick budget triggers the cap, played through the engine;
+  - a non-boss reveal still allows Silver.
+- **D2:**
+  - exactly 70% passes;
+  - the best score below 70% fails, with no medal;
+  - the rounded comparison is checked at a non-round threshold.
+- **F1:** `stepFinished` is true for a lock and a right answer, false for a wrong or invalid pick, and false after the step is finished. The screens' own `recordStep` records a locked step once, as revealed (attempts 1, revealed 1, first try 0, no context or day).
+- **F2:** the round labels run 1–12 for rounds and 1–5 for boss stages, and story steps have none.
+
+### 10.5 Checks on the final state
+
+| Check | Exact outcome |
+|---|---|
+| `npx vitest run` | Exit 0: **11 files, 238 tests passed** (228 before this pass, plus 10) |
+| `npx tsc --noEmit` | Exit 0 |
+| `npm run build` | Exit 0 |
+| `npm run e2e` | Exit 0: **34/34 checks passed**, including A16 (mobile layout: no sideways scroll, touch targets) |
+| Play-through, desktop 1360×860, software WebGL | Exit 0: Gold, mastered, boss 100%, 11 concept records, focus on "Next round: The typical price →", no console errors |
+| Play-through, phone 390×844, touch | Exit 0: same outcomes, no console errors |
+| Play-through, graphics off | Exit 0: same outcomes, no console errors |
+| Diff against `main` | Only `market-ledger.json` among quests; `sql-check.ts`, `python-lite.ts`, `schema-lab.ts`, `world.json` and the curriculum unchanged. This pass touched `game-engine.ts`, `QuestScreen.tsx`, `PracticeScreen.tsx`, `Hud.tsx`, `games.css`, one test file and the two docs |
+
+`docs/USABILITY-TEST.md` is unchanged: **planned, not run**. No player findings exist, and nothing here establishes learning effectiveness.
+
+### 10.6 Remaining risks and next milestone
+
+- No real player, screen-reader user or real phone has used the chapter. The automated checks above are Chromium emulation.
+- The Bronze cap and the 70% pass mark are design rules, not calibrated against learner data.
+- Practice rounds still have no pinned HUD (none existed before); on phones their top bar now scrolls away like the quest's.
+- **Next milestone, as agreed:** run the usability sessions, the screen-reader checklist and the real-device checklist in `docs/USABILITY-TEST.md`. No further feature expansion before that.
 

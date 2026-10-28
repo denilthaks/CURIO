@@ -8,6 +8,7 @@ import * as engine from '../src/engine/game-engine';
 import * as store from '../src/engine/progress-store';
 import * as progression from '../src/engine/progression';
 import type { Answer, ChallengeResult, Run, SpotScene } from '../src/engine/types';
+import { recordStep } from '../src/ui/screens/QuestScreen';
 import { loadAllQuests, loadWorld } from './helpers';
 
 const quests = loadAllQuests();
@@ -170,5 +171,120 @@ describe('Part 2: every boss combination against the pass mark and the medals', 
       });
       expect(progression.isDestinationUnlocked(hall, p)).toBe(open);
     }
+  });
+});
+
+describe('D1: a revealed boss answer caps the medal at bronze, and changes nothing else', () => {
+  const all = combos();
+  test('every passing combination with a boss step at 0 (revealed or out of picks) is bronze; without one, never capped', () => {
+    for (const c of all) {
+      const run = withBoss(perfect, c);
+      if (!engine.isMastered(q, run)) { expect(engine.computeMedal(q, run)).toBe('none'); continue; }
+      if (c.includes(0)) expect(engine.computeMedal(q, run)).toBe('bronze');
+      else expect(engine.computeMedal(q, run)).not.toBe('bronze'); // all other rounds first time → silver or gold
+    }
+  });
+  test('the cap does not change the boss score, the pass, XP or the unlock', () => {
+    const run = withBoss(perfect, [0, 1, 1, 1, 1]);
+    expect(engine.bossScore(q, run)).toBeCloseTo(3.5 / 4.5, 3); // the revealed step still earns 0, nothing more is taken
+    expect(engine.isMastered(q, run)).toBe(true);
+    expect(engine.computeMedal(q, run)).toBe('bronze');
+    expect(engine.computeStars(q, run)).toBe(1);
+    // XP is per step and independent of the medal: the same as the uncapped run minus only the revealed step's XP.
+    const audit = q.scenes.find((s) => s.id === 'audit-revenue')!;
+    expect(engine.computeXp(q, run)).toBe(engine.computeXp(q, perfect) - engine.sceneXp(q, audit, engine.resultFor(perfect, 'audit-revenue')));
+    const base = store.withCompletion(store.defaultProgress(), { ...engine.createRun(quests.get('missing-signal')!), completed: true }, 60, 3, undefined, { mastered: true });
+    const p = store.withCompletion(base, run, engine.computeXp(q, run), engine.computeStars(q, run), q.badge?.id, {
+      mastered: engine.isMastered(q, run), mastery: engine.bossScore(q, run), medal: engine.computeMedal(q, run),
+    });
+    expect(progression.isDestinationUnlocked(hall, p)).toBe(true);
+    expect(store.questRecord(p, 'market-ledger').bestMedal).toBe('bronze');
+    expect(engine.nextMedalHint(q, run)).toMatch(/final challenge was revealed/);
+  });
+  test('a boss step locked by the pick budget counts as revealed for the cap, played through the engine', () => {
+    let r = reach('audit-verdict');
+    const s = engine.resolveScene(engine.currentScene(q, r), r) as SpotScene;
+    for (const row of [2, 3, 4, 5].filter((n) => n !== Number(s.answer[0].slice(1))).slice(0, 2)) r = submit(r, { cell: `A${row}`, working: '=B2-C2' });
+    expect(engine.resultFor(r, 'audit-verdict').revealed).toBe(true);
+    while (!r.completed) { const sc = engine.currentScene(q, r); if (engine.isChallenge(sc) && !engine.resultFor(r, sc.id).solved) r = right(r); r = engine.advance(q, r); }
+    expect(engine.isMastered(q, r)).toBe(true); // 3.5 / 4.5
+    expect(engine.computeMedal(q, r)).toBe('bronze');
+  });
+  test('a revealed round outside the boss still allows silver (only boss reveals cap at bronze)', () => {
+    const run = withBoss(perfect, [1, 1, 1, 1, 1], { 'find-cell': { attempts: 3, solved: true, revealed: true } });
+    expect(engine.computeMedal(q, run)).toBe('silver');
+  });
+});
+
+describe('D2: the pass mark is 70% or more (a design rule, not a validated threshold)', () => {
+  test('exactly 70% passes', () => {
+    const run = withBoss(perfect, [0, 1, 1, 0.3, 1]); // (0 + 1 + 1 + 0.5·0.3 + 1) / 4.5 = 0.7
+    expect(engine.bossScore(q, run)).toBe(0.7);
+    expect(engine.isMastered(q, run)).toBe(true);
+  });
+  test('the highest score below 70% fails, with no unlock and no medal', () => {
+    const below = all70Below();
+    expect(below.score).toBeLessThan(0.7);
+    const run = withBoss(perfect, below.combo);
+    expect(engine.isMastered(q, run)).toBe(false);
+    expect(engine.computeMedal(q, run)).toBe('none');
+  });
+  test('the comparison is on the rounded score, so floating-point error cannot flip the boundary', () => {
+    const shifted = { ...q, mastery: { threshold: 0.733, gold: 0.85 } };
+    const run = withBoss(perfect, [0.6, 0.6, 1, 1, 0.6]); // 3.3 / 4.5 = 0.7333…
+    expect(engine.bossScore(shifted, run)).toBe(0.733);
+    expect(engine.isMastered(shifted, run)).toBe(true);
+  });
+});
+
+/** The best boss score strictly below 70%, over every combination. */
+function all70Below(): { combo: Outcome[]; score: number } {
+  let best = { combo: [0, 0, 0, 0, 0] as Outcome[], score: 0 };
+  for (const c of combos()) {
+    const score = engine.bossScore(q, withBoss(perfect, c))!;
+    if (score < 0.7 && score > best.score) best = { combo: c, score };
+  }
+  return best;
+}
+
+describe('F1 and F2', () => {
+  test('F1: running out of picks finishes the step once, and its concept event is recorded as revealed', () => {
+    let r = reach('find-cell');
+    let last = engine.submitAnswer(q, r, { cell: 'C3' });
+    expect(engine.stepFinished(last.outcome)).toBe(false); // a wrong pick is not an event
+    for (const c of ['A2', 'B5']) { r = last.run; last = engine.submitAnswer(q, r, { cell: c }); }
+    expect(last.outcome.locked).toBe(true);
+    expect(engine.stepFinished(last.outcome)).toBe(true);
+    // Once finished, nothing else can finish it again: no double events.
+    expect(engine.stepFinished(engine.submitAnswer(q, last.run, { cell: 'B3' }).outcome)).toBe(false);
+    expect(engine.revealAnswer(q, last.run)).toBe(last.run);
+    // A right answer is an event; an invalid one is not.
+    const fresh = reach('find-cell', 8);
+    expect(engine.stepFinished(engine.submitAnswer(q, fresh, { cell: 'B3' }).outcome)).toBe(true);
+    expect(engine.stepFinished(engine.submitAnswer(q, fresh, { cell: 'Z9' }).outcome)).toBe(false);
+  });
+  test('F2: one round label for the badge and the screen-reader text: rounds 1–12, boss stages 1–5', () => {
+    const challenges = q.scenes.filter(engine.isChallenge);
+    const labels = challenges.map((s) => engine.roundLabel(q, s.id)!);
+    const rounds = labels.filter((l) => l.kind === 'round');
+    const boss = labels.filter((l) => l.kind === 'boss');
+    expect(rounds.map((l) => l.index)).toEqual(Array.from({ length: 12 }, (_, i) => i + 1));
+    expect(rounds.every((l) => l.total === 12 && l.text === `Round ${l.index} of 12`)).toBe(true);
+    expect(boss.map((l) => l.text)).toEqual([1, 2, 3, 4, 5].map((i) => `Boss stage ${i} of 5`));
+    expect(engine.roundLabel(q, 'arrive')).toBeNull(); // story steps are not rounds
+  });
+});
+
+describe('F1 through the screens\' own recordStep', () => {
+  test('a locked evidence step is recorded once, as revealed: no first-time credit, no context or day toward mastery', () => {
+    let r = reach('find-cell');
+    let last = engine.submitAnswer(q, r, { cell: 'C3' });
+    for (const c of ['A2', 'B5']) { r = last.run; last = engine.submitAnswer(q, r, { cell: c }); }
+    const scene = q.scenes.find((s) => s.id === 'find-cell')!;
+    const p = recordStep(store.defaultProgress(), q, last.run, scene);
+    const rec = p.concepts['XL.CELL.ADDRESS'];
+    expect(rec).toMatchObject({ attempts: 1, revealed: 1, solved: 0, firstTry: 0 });
+    expect(rec.contexts).toEqual([]);
+    expect(rec.days).toEqual([]);
   });
 });

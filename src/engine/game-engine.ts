@@ -909,6 +909,8 @@ export function masteryEvidence(quest: Quest, run: Run) {
     firstTime,
     firstTimeShare: rounds.length ? firstTime / rounds.length : 1,
     revealed: results.filter((r) => r.revealed).length,
+    /** Boss steps whose answer was revealed (by request or by running out of picks). */
+    bossRevealed: bossScenes(quest).filter((s) => resultFor(run, s.id).revealed).length,
     boss: bossScore(quest, run),
     mastered: isMastered(quest, run),
   };
@@ -920,11 +922,15 @@ export function masteryEvidence(quest: Quest, run: Run) {
  *   Silver: mastered, and at least 60% of all rounds solved first time.
  *   Gold:   boss at the gold level (85%), at least 80% of rounds first time,
  *           and no answer revealed anywhere in the quest.
+ * A revealed boss answer caps the medal at bronze. It changes nothing else:
+ * the step already earns no credit, and the pass, XP and unlocks follow the
+ * boss score as usual.
  * Wagers play no part: the same play earns the same medal with or without stakes.
  */
 export function computeMedal(quest: Quest, run: Run): Medal {
   const e = masteryEvidence(quest, run);
   if (!e.mastered) return 'none';
+  if (e.bossRevealed > 0) return 'bronze';
   const gold = (quest.mastery ?? DEFAULT_MASTERY).gold;
   if ((e.boss ?? 1) >= gold && e.firstTimeShare >= MEDAL_RULES.gold && e.revealed === 0) return 'gold';
   if (e.firstTimeShare >= MEDAL_RULES.silver) return 'silver';
@@ -938,6 +944,7 @@ export function nextMedalHint(quest: Quest, run: Run): string {
   const t = quest.mastery ?? DEFAULT_MASTERY;
   const pct = (x: number) => `${Math.round(x * 100)}%`;
   if (medal === 'none') return `Reach ${pct(t.threshold)} in the final challenge (you scored ${pct(e.boss ?? 0)}).`;
+  if (medal === 'bronze' && e.bossRevealed > 0) return 'Bronze at most: an answer in the final challenge was revealed. Replay without revealing one to aim for silver or gold.';
   if (medal === 'bronze') return `Solve at least ${pct(MEDAL_RULES.silver)} of rounds first time for silver (you solved ${e.firstTime} of ${e.rounds}).`;
   if (medal === 'silver') {
     const needs = [];
@@ -993,6 +1000,29 @@ export function maxXp(quest: Quest): number {
  * Stars for a finished run: 3 = every challenge right first time,
  * 2 = finished without revealing any answer, 1 = finished with help.
  */
+/**
+ * Whether a check finished the step, so its concept event should be recorded:
+ * a right answer, or running out of evidence picks (recorded as revealed).
+ * A step can finish only once, so this never double-counts.
+ */
+export function stepFinished(outcome: Outcome): boolean {
+  return Boolean(outcome.valid && (outcome.correct || outcome.locked));
+}
+
+/**
+ * Where a step sits in a game quest, as one source for both the visible badge
+ * and the screen-reader announcement: "Round 3 of 12" or "Boss stage 2 of 5".
+ */
+export function roundLabel(quest: Quest, sceneId: string): { kind: 'round' | 'boss'; index: number; total: number; text: string } | null {
+  const scene = quest.scenes.find((s) => s.id === sceneId);
+  if (!isChallenge(scene)) return null;
+  const group = quest.scenes.filter((s) => isChallenge(s) && Boolean(s.boss) === Boolean(scene.boss));
+  const index = group.findIndex((s) => s.id === sceneId) + 1;
+  return scene.boss
+    ? { kind: 'boss', index, total: group.length, text: `Boss stage ${index} of ${group.length}` }
+    : { kind: 'round', index, total: group.length, text: `Round ${index} of ${group.length}` };
+}
+
 /** Quests built from the game mechanics: rated by medal, not stars. */
 export function isGameQuest(quest: Quest): boolean {
   return quest.scenes.some((s) => isChallenge(s) && Boolean(s.mechanic));

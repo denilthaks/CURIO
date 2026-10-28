@@ -34,11 +34,9 @@ export function recordStep(progress: Progress, quest: import('../../engine/types
 
 /** In game quests a step is a round (or a stage of the boss), not a course phase. */
 function GameBadge({ quest, scene }: { quest: Quest; scene: Scene }) {
-  if (!engine.isChallenge(scene)) return null;
-  const rounds = quest.scenes.filter((s) => engine.isChallenge(s) && !s.boss);
-  const boss = quest.scenes.filter((s) => engine.isChallenge(s) && s.boss);
-  const text = scene.boss ? `⚔️ Boss · stage ${boss.indexOf(scene) + 1} of ${boss.length}` : `ᚱ Round ${rounds.indexOf(scene) + 1} of ${rounds.length}`;
-  return <p className={`phase-badge phase-badge--${scene.boss ? 'assessment' : 'round'}`}>{text}</p>;
+  const label = engine.roundLabel(quest, scene.id);
+  if (!label) return null;
+  return <p className={`phase-badge phase-badge--${label.kind === 'boss' ? 'assessment' : 'round'}`}><span aria-hidden="true">{label.kind === 'boss' ? '⚔️ ' : 'ᚱ '}</span>{label.text}</p>;
 }
 
 /** Where a step sits in the learning cycle, shown as a badge. */
@@ -120,7 +118,8 @@ export function QuestScreen({ questId, onPose, onWorld, reducedMotion = false }:
     const tried = scene.type === 'choice' && !outcome.correct && typeof answer === 'string' && !v.tried.includes(answer) ? [...v.tried, answer] : v.tried;
     setView({ sceneId: scene.id, outcome, tried, invalid: null });
     commit(next, 'feedback');
-    if (outcome.correct) update((p) => recordStep(p, quest, next, rawScene));
+    // A right answer, or running out of picks (recorded as revealed), finishes the step.
+    if (engine.stepFinished(outcome)) update((p) => recordStep(p, quest, next, rawScene));
     onWorld?.(outcome.correct ? 'right' : 'wrong');
   };
 

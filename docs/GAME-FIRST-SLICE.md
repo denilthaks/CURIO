@@ -43,7 +43,7 @@ All are pure TypeScript in `src/engine/` and unit-tested. The UI is in `src/ui/g
 | IV · Hrolf's riddle (rune-word) | Choose the right function from a description (recall) | Rune-word; **counts half** in the boss score because it checks recall, not use |
 | V · The verdict (evidence) | Decide on profit, not revenue | The profit formula (revenue − stock cost) must be right first; then the row to drop is picked |
 
-The boss score is the weighted average of step credit (1 first time, 0.6 after one extra try, 0.3 after more, 0 if revealed), with weights 1, 1, 1, 0.5, 1. The pass mark is 70%.
+The boss score is the weighted average of step credit (1 first time, 0.6 after one extra try, 0.3 after more, 0 if revealed), with weights 1, 1, 1, 0.5, 1. The pass mark is **70% or more** (exactly 70% passes). It is a design rule, not a threshold validated by learner research. A revealed boss step (by request or by running out of picks) earns 0 credit; it does not on its own block a pass or the Great Hall.
 
 - Workshop, repair and the two evidence steps each have three data variants, chosen by the run's seed. A memorised answer from one run fails on another (tested). The rune-word step is fixed.
 - The first hint is held back until the second miss.
@@ -65,7 +65,7 @@ These are three separate things. Only mastery evidence decides a medal or an unl
 | Medal | Requirements |
 |---|---|
 | Bronze | Final challenge passed (boss ≥ 70%) |
-| Silver | Bronze **and** ≥ 60% of rounds right first time |
+| Silver | Bronze **and** ≥ 60% of rounds right first time **and** no boss answer revealed |
 | Gold | Boss ≥ 85% **and** ≥ 80% of rounds right first time **and** no answers revealed |
 
 A player who never stakes anything can earn Gold. Tests check that the medal and XP are identical with and without stakes. The results card shows the evidence (final-challenge %, rounds right first time, answers revealed) and what the next medal needs. Replays keep the best medal and never take mastery away.
