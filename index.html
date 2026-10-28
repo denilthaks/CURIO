@@ -2,47 +2,15 @@
 <html lang="en-GB" data-motion="system" data-text-size="normal">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>CurioTrail: Find your way through the digital world</title>
-  <meta name="description" content="CurioTrail is a free, story-driven game that builds everyday digital skills, starting with how to check AI-generated information.">
+  <meta name="description" content="CurioTrail is a free, story-driven 3D game that builds everyday digital skills: checking AI answers, SQL, Python, Excel and business analytics.">
   <meta name="theme-color" content="#0b1626">
-  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/game.css">
-  <script type="module" src="js/app.js"></script>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 </head>
 <body>
-  <a class="skip-link" href="#main">Skip to main content</a>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a class="brand" href="#/" aria-label="CurioTrail home">
-        <img src="assets/favicon.svg" alt="" width="32" height="32">
-        <span>CurioTrail</span>
-      </a>
-      <nav class="topnav" aria-label="Main">
-        <a href="#/map" data-nav="map">Map</a>
-      </nav>
-      <div class="hud" id="hud" hidden></div>
-      <button class="btn btn-ghost btn-sm" type="button" id="open-settings">
-        <span aria-hidden="true">⚙</span> Settings
-      </button>
-    </div>
-  </header>
-
-  <main id="main" class="page" tabindex="-1">
-    <section class="narrow loading" aria-live="polite">
-      <h1>Loading CurioTrail…</h1>
-      <noscript><p>CurioTrail is an interactive game and needs JavaScript turned on.</p></noscript>
-    </section>
-  </main>
-
-  <footer class="site-footer">
-    <p>CurioTrail is a free, open-source prototype. Progress is stored only in your browser.
-      <a href="https://github.com/denilthaks/CURIO" target="_blank" rel="noopener">View the source<span class="sr-only"> (opens in a new tab)</span></a></p>
-  </footer>
-
-  <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+  <div id="root"></div>
+  <noscript><p style="padding:1rem">CurioTrail is an interactive game and needs JavaScript turned on.</p></noscript>
+  <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

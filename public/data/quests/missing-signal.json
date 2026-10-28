@@ -1,0 +1,505 @@
+{
+  "schemaVersion": 1,
+  "id": "missing-signal",
+  "number": 1,
+  "title": "The Missing Signal",
+  "completionTitle": "Signal restored",
+  "region": "signal-woods",
+  "destination": "signal-woods",
+  "subject": "AI literacy",
+  "estimatedMinutes": "5–8",
+  "intro": "An AI assistant helped write a workshop announcement for the village noticeboard. Some of the details may be wrong. Check them before anyone sees it.",
+  "objectives": [
+    {
+      "id": "distinguish-source",
+      "label": "Tell an original source apart from an AI-generated summary"
+    },
+    {
+      "id": "identify-contradiction",
+      "label": "Spot where two pieces of information disagree"
+    },
+    {
+      "id": "verify-claims",
+      "label": "Choose a sensible way to check a claim before using it"
+    },
+    {
+      "id": "prompt-context",
+      "label": "Explain why a prompt needs context and limits"
+    }
+  ],
+  "characters": {
+    "mira": {
+      "name": "Mira",
+      "role": "Village archivist",
+      "initial": "M"
+    },
+    "tobin": {
+      "name": "Tobin",
+      "role": "Neighbour",
+      "initial": "T"
+    }
+  },
+  "evidence": [
+    {
+      "id": "notice",
+      "kind": "source",
+      "kindLabel": "Original source",
+      "title": "Organiser's notice",
+      "from": "Willowmere Library, the workshop organiser",
+      "body": [
+        "Beginner Tech Workshop: Getting Started with Online Tools",
+        "This Saturday, 14:00–16:00, Willowmere Community Hall, Room 2.",
+        "Free entry. Beginners welcome.",
+        "A small number of laptops (10) are available to borrow.",
+        "Please register at the library desk so we can plan seats."
+      ]
+    },
+    {
+      "id": "ai-draft",
+      "kind": "ai",
+      "kindLabel": "AI-generated draft",
+      "title": "Assistant's summary",
+      "from": "An AI writing assistant, asked to \"summarise the workshop\"",
+      "body": [
+        "Join us for an exciting Tech Workshop this Saturday at 15:00 at Willowmere Community Hall!",
+        "Free laptops for every attendee.",
+        "No registration needed. Just turn up!"
+      ]
+    },
+    {
+      "id": "message",
+      "kind": "message",
+      "kindLabel": "Unverified message",
+      "title": "Message from Tobin",
+      "from": "Tobin, a neighbour",
+      "body": [
+        "Someone told me the workshop starts at 3 now? Not totally sure though."
+      ]
+    }
+  ],
+  "xp": {
+    "firstTryBonus": 5,
+    "completion": 25
+  },
+  "badge": {
+    "id": "signal-restorer",
+    "name": "Signal Restorer",
+    "icon": "📡",
+    "description": "Checked an AI-written announcement against its source before publishing."
+  },
+  "takeaway": "AI can save you time drafting, but it can also state wrong details confidently. Before you share something important, compare it with the original source.",
+  "scenes": [
+    {
+      "id": "arrive",
+      "type": "dialogue",
+      "title": "The village noticeboard",
+      "speaker": "mira",
+      "lines": [
+        "Pathfinder, you came! The noticeboard signal has gone quiet, and we need it working before the workshop.",
+        "An AI assistant drafted the announcement for us. It reads well, but I'm not sure every detail is right.",
+        "Will you help me check it before we publish?"
+      ],
+      "action": "Investigate"
+    },
+    {
+      "id": "investigate",
+      "type": "evidence",
+      "title": "Gather the evidence",
+      "speaker": "mira",
+      "lines": [
+        "Here's everything I have. Open each item and read it carefully. Notice where each one came from."
+      ],
+      "evidence": [
+        "notice",
+        "ai-draft",
+        "message"
+      ],
+      "action": "I've read them all"
+    },
+    {
+      "id": "lesson-sources",
+      "type": "lesson",
+      "title": "Learn: sources and summaries",
+      "speaker": "mira",
+      "skills": [
+        "distinguish-source",
+        "verify-claims"
+      ],
+      "action": "Start the guided exercise",
+      "lesson": {
+        "concept": "Sources and summaries",
+        "objective": "Tell where information comes from, and check copies against the original.",
+        "plainEnglish": "An original source is where a piece of information starts: the person or organisation responsible for it. A summary, whether written by a person or by an AI, is a retelling. Retellings can drop, change or invent details, so when details matter you compare the summary with the source.",
+        "analogy": "Think of a recipe passed along by word of mouth. By the third retelling, “a teaspoon of salt” can become “a tablespoon”. The cookbook is the source; the retellings are summaries.",
+        "example": {
+          "kind": "text",
+          "code": "Train company website:  \"Last train 23:10\"            ← source\nFriend's text:          \"last train's around 11:30?\"   ← retelling\nAI answer:              \"The last train leaves at 23:40.\" ← retelling (sounds sure)",
+          "caption": "Which one would you trust to catch the last train?"
+        },
+        "whyItMatters": "AI tools write fluent, confident text even when a detail is wrong. Checking important facts against the source protects you and everyone you share them with.",
+        "commonMistake": "Treating a confident tone, or hearing the same claim twice, as proof. If two retellings come from the same mistaken copy, they are one claim, not two.",
+        "takeaway": "Find the source, compare the details, and trust the source when they disagree."
+      }
+    },
+    {
+      "id": "find-source",
+      "type": "choice",
+      "title": "Find the source",
+      "speaker": "mira",
+      "context": "Before we compare details, we need to know which document to trust most.",
+      "prompt": "Which piece of evidence is the original source of the workshop details?",
+      "options": [
+        {
+          "id": "notice",
+          "text": "The organiser's notice",
+          "feedback": "Yes. The library is running the workshop, so its notice is where the details come from."
+        },
+        {
+          "id": "ai-draft",
+          "text": "The AI assistant's summary",
+          "feedback": "The summary was made from other information. It's a copy, not the source, and copies can pick up mistakes."
+        },
+        {
+          "id": "message",
+          "text": "Tobin's message",
+          "feedback": "Tobin is passing on something he heard. He even says he isn't sure, so it's second-hand at best."
+        },
+        {
+          "id": "none",
+          "text": "None of them. They're all equally reliable",
+          "feedback": "They aren't equal. One came from the people running the event. The others are retellings."
+        }
+      ],
+      "correct": "notice",
+      "hints": [
+        "Look at the \"From\" line on each card. Who is actually organising the workshop?",
+        "A source is where information starts. Summaries and messages repeat it."
+      ],
+      "explanation": "An original source comes from the person or organisation responsible for the information. Summaries, including AI summaries, are retellings and can introduce errors.",
+      "skills": [
+        "distinguish-source"
+      ],
+      "xp": 10,
+      "phase": "guided"
+    },
+    {
+      "id": "spot-conflict",
+      "type": "choice",
+      "title": "Spot the conflict",
+      "speaker": "mira",
+      "context": "Let's compare the first lines of the organiser's notice and the AI draft.",
+      "prompt": "Compare the day, start time and place. Which of these does not match?",
+      "options": [
+        {
+          "id": "day",
+          "text": "The day",
+          "feedback": "Both say \"this Saturday\", so the day matches."
+        },
+        {
+          "id": "time",
+          "text": "The start time",
+          "feedback": "Well spotted. The notice says 14:00 but the AI draft says 15:00."
+        },
+        {
+          "id": "place",
+          "text": "The place",
+          "feedback": "Both mention Willowmere Community Hall. The draft leaves out the room number, but it doesn't contradict the notice."
+        },
+        {
+          "id": "match",
+          "text": "Nothing. They match",
+          "feedback": "Look again at the numbers. One detail is different between the two."
+        }
+      ],
+      "correct": "time",
+      "hints": [
+        "Read the times in each document side by side.",
+        "The notice says 14:00. What time does the AI draft give?"
+      ],
+      "explanation": "A contradiction is when two sources give different answers to the same question. Here the start time differs, so at least one of them is wrong.",
+      "skills": [
+        "identify-contradiction"
+      ],
+      "xp": 10
+    },
+    {
+      "id": "verify-time",
+      "type": "choice",
+      "title": "Decide what to do",
+      "speaker": "mira",
+      "context": "The notice says the workshop begins at 14:00. The AI summary says 15:00.",
+      "prompt": "What should you do before publishing the announcement?",
+      "options": [
+        {
+          "id": "trust-ai",
+          "text": "Trust the AI because it sounds confident",
+          "feedback": "A confident tone isn't proof. AI tools can state wrong details just as smoothly as right ones."
+        },
+        {
+          "id": "reasonable",
+          "text": "Choose whichever time looks more reasonable",
+          "feedback": "Both times look reasonable, and that's the problem. Guessing doesn't tell you which is true."
+        },
+        {
+          "id": "check-source",
+          "text": "Check the original notice and use the verified time",
+          "feedback": "Exactly. The notice comes from the organiser, so 14:00 is the time you can stand behind."
+        },
+        {
+          "id": "average",
+          "text": "Average the two times",
+          "feedback": "That would give 14:30, a time nobody announced. Combining two answers doesn't make either one correct."
+        }
+      ],
+      "correct": "check-source",
+      "hints": [
+        "Which document did you decide was the original source?",
+        "When two versions disagree, go back to where the information started."
+      ],
+      "explanation": "Fluent, confident language is not proof of accuracy. When an AI output and a source disagree, go with the source, or ask the source directly.",
+      "skills": [
+        "verify-claims"
+      ],
+      "xp": 10
+    },
+    {
+      "id": "rumour",
+      "type": "choice",
+      "title": "A second opinion?",
+      "speaker": "mira",
+      "context": "Tobin's message also says the workshop starts \"at 3\". So now two things say 15:00.",
+      "prompt": "Does Tobin's message mean you should publish 15:00?",
+      "options": [
+        {
+          "id": "majority",
+          "text": "Yes. Two sources say 15:00, so it must be right",
+          "feedback": "Counting votes doesn't work here. Tobin may have heard the time from someone who read the AI draft, so it could be the same mistake repeated."
+        },
+        {
+          "id": "keep-source",
+          "text": "No. Keep 14:00 unless the organiser confirms a change",
+          "feedback": "Right. A rumour isn't confirmation. If the time really changed, the organiser can tell you. Until then, use the source."
+        },
+        {
+          "id": "both",
+          "text": "Publish both times so people can choose",
+          "feedback": "Two times would confuse people and some would miss the start. An announcement should give one verified time."
+        },
+        {
+          "id": "cancel",
+          "text": "Don't publish anything at all",
+          "feedback": "You don't need to give up. You already have a reliable source. Publish what it says."
+        }
+      ],
+      "correct": "keep-source",
+      "hints": [
+        "Where might Tobin have heard \"3 o'clock\"? Could it trace back to the AI draft?",
+        "Is a message that says \"not totally sure\" the same as confirmation from the organiser?"
+      ],
+      "explanation": "Repeating a claim doesn't make it more true. Information that spreads from one mistaken source can look like agreement. Ask who actually knows, and check with them.",
+      "skills": [
+        "verify-claims",
+        "distinguish-source"
+      ],
+      "xp": 10
+    },
+    {
+      "id": "lesson-prompts",
+      "type": "lesson",
+      "title": "Learn: writing a useful prompt",
+      "speaker": "mira",
+      "skills": [
+        "prompt-context"
+      ],
+      "action": "Start the guided exercise",
+      "lesson": {
+        "concept": "Writing a useful prompt",
+        "objective": "Give an AI assistant the information and limits it needs.",
+        "plainEnglish": "A prompt is the instruction you give an AI assistant. It only knows what you tell it and what it learned in training, so a vague prompt gets a vague or invented answer. Useful prompts usually include the goal, the audience, the source material, the format, and what to do when information is missing.",
+        "analogy": "Briefing a new temp. “Sort out the bakery email” could produce anything. “Using this price list, write a three-line email to regular customers about Saturday’s hours, and don’t promise discounts” gets you what you need.",
+        "example": {
+          "kind": "text",
+          "code": "Weak:    Write about our bakery's new hours.\n\nStronger: Using the opening hours below, write a 50-word notice for\n          regular customers in a friendly tone. Don't mention prices.\n          If a day isn't listed, say \"closed\" rather than guessing.\n          [opening hours pasted here]"
+        },
+        "whyItMatters": "Clear prompts reduce invented details and save rounds of editing. A good prompt doesn’t make the output true, though. You still check it.",
+        "commonMistake": "Asking for “something exciting” or telling the assistant to “fix any mistakes” without giving it the facts. It can’t check facts it was never given.",
+        "takeaway": "Goal + audience + source + format + “don’t guess”. Then check the result."
+      }
+    },
+    {
+      "id": "better-prompt",
+      "type": "choice",
+      "title": "Improve the instructions",
+      "speaker": "mira",
+      "context": "Mira wants to ask the AI assistant for a new draft. The first attempt only said: \"Write something about the workshop.\"",
+      "prompt": "Which prompt is most likely to get an accurate, useful draft?",
+      "options": [
+        {
+          "id": "vague",
+          "text": "\"Write something about the workshop.\"",
+          "feedback": "This is the original prompt. It gives no facts, no audience and no format, so the assistant fills the gaps by guessing."
+        },
+        {
+          "id": "hype",
+          "text": "\"Write an exciting announcement about the workshop and make it sound amazing.\"",
+          "feedback": "Asking for excitement without facts encourages exaggeration, like promising free laptops for everyone."
+        },
+        {
+          "id": "constrained",
+          "text": "\"Using only the organiser's notice below, write a 60-word announcement for local beginners. Include the time, place, cost and how to register. If a detail is missing, say so instead of guessing.\"",
+          "feedback": "Yes. It gives the source, the audience, the length, what to include, and tells the assistant not to make things up."
+        },
+        {
+          "id": "self-fix",
+          "text": "\"Write the announcement and fix any mistakes yourself.\"",
+          "feedback": "The assistant has no way to know what's correct without the source. It can't check facts it was never given."
+        }
+      ],
+      "correct": "constrained",
+      "hints": [
+        "A good prompt tells the assistant what information to use, who it's for, and what form you want.",
+        "Look for the prompt that hands over the source and says what to do when something is missing."
+      ],
+      "explanation": "Useful prompts share purpose, source material and limits. Even with a good prompt, you still need to check the result, because it can still contain errors.",
+      "skills": [
+        "prompt-context"
+      ],
+      "xp": 10
+    },
+    {
+      "id": "assemble",
+      "type": "assemble",
+      "title": "Build the final announcement",
+      "speaker": "mira",
+      "context": "Now put the announcement together. Use only details the organiser's notice supports.",
+      "prompt": "Choose one option for each line, then tick any extra details you want to include.",
+      "heading": "Beginner Tech Workshop",
+      "fixedLines": [
+        "Willowmere Community Hall, Room 2"
+      ],
+      "successFeedback": "Every line matches the organiser's notice.",
+      "slots": [
+        {
+          "id": "time",
+          "label": "Start time",
+          "options": [
+            {
+              "id": "1400",
+              "text": "Saturday at 14:00",
+              "correct": true
+            },
+            {
+              "id": "1500",
+              "text": "Saturday at 15:00",
+              "correct": false,
+              "feedback": "15:00 came from the AI draft. The organiser's notice says 14:00."
+            },
+            {
+              "id": "1430",
+              "text": "Saturday at about 14:30",
+              "correct": false,
+              "feedback": "14:30 doesn't appear anywhere. It's a guess between two times."
+            }
+          ]
+        },
+        {
+          "id": "laptops",
+          "label": "Laptops",
+          "options": [
+            {
+              "id": "every",
+              "text": "Free laptops for every attendee",
+              "correct": false,
+              "feedback": "The notice says only 10 laptops are available to borrow, not one for everyone. Free to keep is never mentioned."
+            },
+            {
+              "id": "borrow",
+              "text": "A small number of laptops are available to borrow",
+              "correct": true
+            },
+            {
+              "id": "bring",
+              "text": "You must bring your own laptop",
+              "correct": false,
+              "feedback": "The notice doesn't say laptops are required. It offers some to borrow."
+            }
+          ]
+        },
+        {
+          "id": "registration",
+          "label": "Registration",
+          "options": [
+            {
+              "id": "none",
+              "text": "No registration needed, just turn up",
+              "correct": false,
+              "feedback": "The notice asks people to register at the library desk. \"No registration\" was invented by the AI draft."
+            },
+            {
+              "id": "desk",
+              "text": "Please register at the library desk",
+              "correct": true
+            },
+            {
+              "id": "online",
+              "text": "Register online in advance",
+              "correct": false,
+              "feedback": "Nothing in the notice mentions online registration."
+            }
+          ]
+        }
+      ],
+      "extras": [
+        {
+          "id": "free",
+          "text": "Free entry",
+          "supported": true
+        },
+        {
+          "id": "lunch",
+          "text": "Lunch provided",
+          "supported": false,
+          "feedback": "Lunch isn't mentioned in the notice. Leave out details you can't support."
+        },
+        {
+          "id": "beginners",
+          "text": "Beginners welcome",
+          "supported": true
+        },
+        {
+          "id": "certificate",
+          "text": "Certificate awarded at the end",
+          "supported": false,
+          "feedback": "A certificate isn't mentioned in the notice. It sounds nice, but it's unsupported."
+        }
+      ],
+      "hints": [
+        "Keep the organiser's notice open and check each line against it.",
+        "Anything that only appears in the AI draft, or nowhere at all, should be left out."
+      ],
+      "explanation": "Every line now matches the organiser's notice, and nothing unsupported was added. That is an announcement you can publish with confidence.",
+      "skills": [
+        "verify-claims"
+      ],
+      "xp": 20,
+      "phase": "assessment"
+    },
+    {
+      "id": "restore",
+      "type": "ending",
+      "title": "The signal returns",
+      "speaker": "mira",
+      "lines": [
+        "It's live! The noticeboard is glowing again, and every detail matches the organiser's notice.",
+        "The AI helped us start the draft, but you made sure it was true. That part is always our job.",
+        "Look at the map. Paths are opening beyond the woods."
+      ],
+      "action": "See what you learned"
+    }
+  ],
+  "next": {
+    "region": "market-quarter",
+    "title": "The Quiet Till",
+    "teaser": "A shop's sales have fallen and nobody knows why. Read the numbers and find the story they tell."
+  }
+}

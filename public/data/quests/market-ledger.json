@@ -1,0 +1,399 @@
+{
+  "schemaVersion": 1,
+  "id": "market-ledger",
+  "number": 4,
+  "title": "The Market Ledger",
+  "completionTitle": "The books balance",
+  "region": "trading-market",
+  "destination": "trading-market",
+  "subject": "Excel",
+  "estimatedMinutes": "6–10",
+  "intro": "Tove's trading post keeps its accounts in a spreadsheet, but the totals are missing. Write real formulas to work out revenue, totals and averages.",
+  "objectives": [
+    {
+      "id": "read-cells",
+      "label": "Find values by their cell address"
+    },
+    {
+      "id": "write-formulas",
+      "label": "Write formulas that calculate from cells"
+    },
+    {
+      "id": "use-ranges",
+      "label": "Use functions such as SUM and AVERAGE on ranges"
+    },
+    {
+      "id": "absolute-refs",
+      "label": "Know when to fix a reference with $"
+    }
+  ],
+  "characters": {
+    "tove": {
+      "name": "Tove",
+      "role": "Trader at the harbour market",
+      "initial": "T"
+    }
+  },
+  "evidence": [],
+  "xp": {
+    "firstTryBonus": 5,
+    "completion": 25
+  },
+  "badge": {
+    "id": "ledger-keeper",
+    "name": "Ledger Keeper",
+    "icon": "📊",
+    "description": "Built working spreadsheet formulas instead of typing in answers."
+  },
+  "takeaway": "Formulas refer to cells, not typed numbers, so they update when the data changes. Ranges like B2:B5 feed functions such as SUM and AVERAGE, and a $ fixes a reference when you fill a formula down.",
+  "scenes": [
+    {
+      "id": "arrive",
+      "type": "dialogue",
+      "title": "The harbour market",
+      "speaker": "tove",
+      "lines": [
+        "Fresh furs, Baltic amber, honey from the hills! Oh, you're the Pathfinder Mira mentioned.",
+        "My spreadsheet lists what I sold this week, but I never worked out the money. I just guess.",
+        "Teach me to let the spreadsheet do the sums, and I'll stop guessing."
+      ],
+      "action": "Open the spreadsheet"
+    },
+    {
+      "id": "lesson-cells-formulas",
+      "type": "lesson",
+      "title": "Learn: cells, formulas and filling down",
+      "speaker": "tove",
+      "skills": [
+        "read-cells",
+        "write-formulas"
+      ],
+      "action": "Start the guided exercise",
+      "lesson": {
+        "concept": "Cells, formulas and filling down",
+        "objective": "Find cells by address and write a formula once for a whole column.",
+        "plainEnglish": "Every cell has an address: its column letter, then its row number, like C4. A formula starts with = and can refer to other cells, such as =C4*D4. When you copy a formula down a column with the fill handle, Excel shifts the row numbers for you, so =C4*D4 becomes =C5*D5 on the next row.",
+        "analogy": "Grid references on a map: “column C, row 4” finds exactly one square.",
+        "example": {
+          "kind": "excel",
+          "code": "     A         B       C        D\n1  Room      Floor   Length   Width\n2  Kitchen   1       4        3       E2: =C2*D2  → 12\n3  Hall      1       6        2       E3: =C3*D3  → 12 (filled down)",
+          "caption": "Each room’s area: one formula, filled down."
+        },
+        "whyItMatters": "Formulas that refer to cells update automatically when the data changes, and one formula can serve a whole column.",
+        "commonMistake": "Typing the result (12) instead of a formula, or forgetting the = so Excel treats the entry as text.",
+        "takeaway": "Start with =, refer to cells, and fill down."
+      }
+    },
+    {
+      "id": "find-cell",
+      "type": "choice",
+      "title": "Finding your way around",
+      "speaker": "tove",
+      "context": "Every cell has an address: its column letter, then its row number.",
+      "code": "     A        B       C\n1  Item     Price   Qty sold\n2  Furs       25       6\n3  Honey       8      15\n4  Amber      40       3\n5  Rope        5      22",
+      "prompt": "Which cell holds the price of Honey?",
+      "options": [
+        {
+          "id": "B3",
+          "text": "B3",
+          "feedback": "Yes. Price is column B and Honey is on row 3, so B3 holds 8."
+        },
+        {
+          "id": "C3",
+          "text": "C3",
+          "feedback": "C3 is Honey's quantity sold (15). Price is in column B."
+        },
+        {
+          "id": "B2",
+          "text": "B2",
+          "feedback": "B2 is the price of Furs. Honey is one row down."
+        },
+        {
+          "id": "A3",
+          "text": "A3",
+          "feedback": "A3 holds the word Honey itself. The price is to its right."
+        }
+      ],
+      "correct": "B3",
+      "hints": [
+        "Column letter first, then row number.",
+        "Find the Price column, then go down to Honey's row."
+      ],
+      "explanation": "A cell address is column letter + row number, like B3. Formulas use these addresses to read values.",
+      "skills": [
+        "read-cells"
+      ],
+      "xp": 10
+    },
+    {
+      "id": "row-revenue",
+      "type": "excel",
+      "title": "Revenue per item",
+      "speaker": "tove",
+      "context": "Revenue is price times quantity. Write it once and the spreadsheet fills it down for the other items.",
+      "prompt": "Type a formula in D2 that calculates revenue for Furs. It will be filled down to D5.",
+      "columns": [
+        "Item",
+        "Price",
+        "Qty sold",
+        "Revenue"
+      ],
+      "rows": [
+        [
+          "Furs",
+          25,
+          6,
+          null
+        ],
+        [
+          "Honey",
+          8,
+          15,
+          null
+        ],
+        [
+          "Amber",
+          40,
+          3,
+          null
+        ],
+        [
+          "Rope",
+          5,
+          22,
+          null
+        ]
+      ],
+      "target": "D2",
+      "fillDownTo": "D5",
+      "expected": {
+        "D2": 150,
+        "D3": 120,
+        "D4": 120,
+        "D5": 110
+      },
+      "starter": "=",
+      "solution": "=B2*C2",
+      "successFeedback": "All four revenues are right: 150, 120, 120 and 110.",
+      "hints": [
+        "Formulas start with =, then use cell addresses instead of numbers.",
+        "Furs' price is in B2 and its quantity in C2. Multiply them with *."
+      ],
+      "explanation": "=B2*C2 multiplies two cells. When it's filled down, Excel shifts the row numbers (B3*C3, B4*C4…), which is why referring to cells beats typing numbers.",
+      "skills": [
+        "write-formulas"
+      ],
+      "xp": 15,
+      "phase": "guided"
+    },
+    {
+      "id": "lesson-ranges",
+      "type": "lesson",
+      "title": "Learn: ranges and functions",
+      "speaker": "tove",
+      "skills": [
+        "use-ranges"
+      ],
+      "action": "Start the guided exercise",
+      "lesson": {
+        "concept": "Ranges and functions",
+        "objective": "Use functions such as SUM and AVERAGE on a block of cells.",
+        "plainEnglish": "A range is a block of cells written first:last, like E2:E9. Functions take ranges and return one result: SUM adds them, AVERAGE finds the mean, MIN and MAX find the smallest and largest, and COUNT counts the numbers.",
+        "analogy": "Pointing at a pile of receipts and saying “add these up”, instead of reading each one out loud.",
+        "example": {
+          "kind": "excel",
+          "code": "=SUM(E2:E9)       total of E2 to E9\n=MAX(B2:B20)      largest value in B2 to B20\n=AVERAGE(C2:C5)   mean of four cells",
+          "caption": "Function name, then the range in brackets."
+        },
+        "whyItMatters": "Ranges keep formulas short, readable and correct when values change. Adding cells one by one is slow and easy to get wrong.",
+        "commonMistake": "Choosing the wrong range, for example including a header or an existing total row, which counts it twice.",
+        "takeaway": "=FUNCTION(first:last), and check the range covers exactly the cells you mean."
+      }
+    },
+    {
+      "id": "total",
+      "type": "excel",
+      "title": "The week's total",
+      "speaker": "tove",
+      "context": "Now the most important number: how much did I take in altogether?",
+      "prompt": "Type a formula in D6 that adds up all the revenue in D2 to D5.",
+      "columns": [
+        "Item",
+        "Price",
+        "Qty sold",
+        "Revenue"
+      ],
+      "rows": [
+        [
+          "Furs",
+          25,
+          6,
+          150
+        ],
+        [
+          "Honey",
+          8,
+          15,
+          120
+        ],
+        [
+          "Amber",
+          40,
+          3,
+          120
+        ],
+        [
+          "Rope",
+          5,
+          22,
+          110
+        ],
+        [
+          "Total",
+          null,
+          null,
+          null
+        ]
+      ],
+      "target": "D6",
+      "expected": {
+        "D6": 500
+      },
+      "requireFunctions": [
+        "SUM"
+      ],
+      "starter": "=",
+      "solution": "=SUM(D2:D5)",
+      "successFeedback": "500 in total this week.",
+      "hints": [
+        "SUM adds up a range of cells.",
+        "A range is written first:last, like D2:D5."
+      ],
+      "explanation": "=SUM(D2:D5) adds every cell from D2 to D5. If a sale is corrected, the total updates by itself, unlike =150+120+120+110.",
+      "skills": [
+        "use-ranges"
+      ],
+      "xp": 15
+    },
+    {
+      "id": "average-price",
+      "type": "excel",
+      "title": "The average price",
+      "speaker": "tove",
+      "context": "A customer asked what my goods cost on average.",
+      "prompt": "Type a formula in B6 that calculates the average price of the four items.",
+      "columns": [
+        "Item",
+        "Price",
+        "Qty sold",
+        "Revenue"
+      ],
+      "rows": [
+        [
+          "Furs",
+          25,
+          6,
+          150
+        ],
+        [
+          "Honey",
+          8,
+          15,
+          120
+        ],
+        [
+          "Amber",
+          40,
+          3,
+          120
+        ],
+        [
+          "Rope",
+          5,
+          22,
+          110
+        ],
+        [
+          "Average",
+          null,
+          null,
+          null
+        ]
+      ],
+      "target": "B6",
+      "expected": {
+        "B6": 19.5
+      },
+      "requireFunctions": [
+        "AVERAGE"
+      ],
+      "starter": "=",
+      "solution": "=AVERAGE(B2:B5)",
+      "successFeedback": "An average price of 19.5.",
+      "hints": [
+        "There's a function named after exactly what you want.",
+        "=AVERAGE(…) with the range of prices, B2 to B5."
+      ],
+      "explanation": "AVERAGE adds a range and divides by how many numbers it contains. Choosing the right range matters as much as the right function.",
+      "skills": [
+        "use-ranges",
+        "write-formulas"
+      ],
+      "xp": 15
+    },
+    {
+      "id": "absolute",
+      "type": "choice",
+      "title": "The fixed tax rate",
+      "speaker": "tove",
+      "context": "The harbour tax rate (10%) is in cell F1. Tove typed =D2*F1 in E2 and filled it down. E2 is right, but E3, E4 and E5 all show 0.",
+      "code": "     D          E            F\n1  Revenue    Tax          10%\n2    150      =D2*F1   → 15\n3    120      =D3*F2   → 0\n4    120      =D4*F3   → 0",
+      "prompt": "What's going wrong, and how do you fix it?",
+      "options": [
+        {
+          "id": "dollar",
+          "text": "Filling down shifted F1 to F2, F3…, which are empty. Use $F$1 to keep it fixed",
+          "feedback": "Exactly. $ before the column and row locks the reference, so every row uses the tax rate in F1."
+        },
+        {
+          "id": "type",
+          "text": "10% should be typed into every row of column F",
+          "feedback": "That works, but copying the rate everywhere means changing it in many places later. A fixed reference is the better fix."
+        },
+        {
+          "id": "sum",
+          "text": "Use SUM instead of *",
+          "feedback": "SUM adds things up. Tax is revenue times the rate, so * is right. The reference is the problem."
+        },
+        {
+          "id": "broken",
+          "text": "The spreadsheet is broken. Retype the formula in each cell",
+          "feedback": "Nothing is broken. Excel did exactly what relative references do when filled down."
+        }
+      ],
+      "correct": "dollar",
+      "hints": [
+        "Look at how the formula changes from row 2 to row 3.",
+        "Which reference should stay the same on every row?"
+      ],
+      "explanation": "Relative references (F1) shift when filled; absolute references ($F$1) don't. Use $ for single settings like a tax rate that every row should share.",
+      "skills": [
+        "absolute-refs"
+      ],
+      "xp": 10,
+      "phase": "assessment"
+    },
+    {
+      "id": "ending",
+      "type": "ending",
+      "title": "The books balance",
+      "speaker": "tove",
+      "lines": [
+        "500 for the week! And if I fix a sale, every number updates by itself.",
+        "No more guessing. The spreadsheet does the sums and I check they make sense.",
+        "The steward in the Great Hall wants a proper dashboard. You're ready for it."
+      ],
+      "action": "See what you learned"
+    }
+  ]
+}

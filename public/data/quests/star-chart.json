@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "id": "star-chart",
+  "number": 6,
+  "title": "The Star Chart",
+  "completionTitle": "The model holds",
+  "region": "great-hall",
+  "destination": "great-hall",
+  "subject": "Data modelling",
+  "estimatedMinutes": "10–15",
+  "intro": "The Jarl wants revenue by product, date and country, straight from the raw sales records. Build a star schema in the modelling lab: choose the right tables, connect their keys and set each relationship correctly.",
+  "requires": ["the-ledger"],
+  "objectives": [
+    { "id": "fact-dimension", "label": "Tell fact tables from dimension tables" },
+    { "id": "grain", "label": "Say what one row of a table represents (its grain)" },
+    { "id": "keys", "label": "Join tables with primary and foreign keys" },
+    { "id": "cardinality", "label": "Choose cardinality and filter direction from the data" },
+    { "id": "star-schema", "label": "Build a star schema that answers a business question" }
+  ],
+  "characters": {
+    "astrid": { "name": "Astrid", "role": "Steward of the Great Hall", "initial": "A" }
+  },
+  "evidence": [],
+  "xp": { "firstTryBonus": 5, "completion": 30 },
+  "badge": { "id": "star-cartographer", "name": "Star Cartographer", "icon": "✳️", "description": "Built a valid star schema and explained why its relationships work." },
+  "takeaway": "Keep facts at transaction grain, describe them with dimension tables, and join each dimension’s unique key to the matching foreign key in the fact table: many-to-one, filtering from dimension to fact.",
+  "scenes": [
+    {
+      "id": "arrive",
+      "type": "dialogue",
+      "title": "The drafting table",
+      "speaker": "astrid",
+      "lines": [
+        "The Jarl loved his dashboard. Now he wants more: revenue by product, by month and by country, worked out from the raw sales records.",
+        "Our scribes keep separate ledgers: one for sales, and others describing the products, the dates and the countries.",
+        "To combine them, we draw a star chart. Analysts call it a data model. Let me show you how it works."
+      ],
+      "action": "Show me"
+    },
+    {
+      "id": "lesson-fact-dim",
+      "type": "lesson",
+      "title": "Learn: facts, dimensions and grain",
+      "speaker": "astrid",
+      "skills": ["fact-dimension", "grain"],
+      "action": "Start the guided exercise",
+      "lesson": {
+        "concept": "Fact tables, dimension tables and grain",
+        "objective": "Recognise fact and dimension tables, and say what one row means.",
+        "plainEnglish": "A fact table records events, usually business transactions, with numbers you want to add up, like a sales amount. A dimension table describes the things involved in those events: products, dates, places or customers. A table’s grain is what one row represents, for example “one row per sale”. A fact table at transaction grain keeps the detail, so the numbers can be totalled any way you like later.",
+        "analogy": "A shop’s till roll is the fact table: one line per item sold. The product catalogue, the calendar and the list of branches are dimensions: they describe what appears on the receipts.",
+        "example": {
+          "kind": "text",
+          "code": "OrdersFact  (grain: one row per order line)\nOrderID  DateKey   BookKey  StoreKey  Amount\n1        20240601  501      7         12.99\n2        20240601  502      7          8.50\n\nDimBook     (grain: one row per book)\nBookKey  Title             Genre\n501      The Long Voyage   Adventure",
+          "caption": "A bookshop’s model: the fact table records each sale; the dimension describes each book."
+        },
+        "whyItMatters": "Keeping facts at the finest grain means one model can answer many questions: revenue by product, by month, by country, or all three at once.",
+        "commonMistake": "Using an already-summarised table, such as monthly totals, as the fact table. Once rows have been added together, you can’t split them back out by day or country.",
+        "takeaway": "Facts record events and hold the numbers; dimensions describe them. Always know your grain.",
+        "simplification": "Real models can have several fact tables and other shapes, such as snowflake schemas. This lab uses the classic beginner design: one fact table at the centre of a star of dimensions."
+      }
+    },
+    {
+      "id": "grain-check",
+      "type": "choice",
+      "phase": "guided",
+      "title": "Check the grain",
+      "speaker": "astrid",
+      "context": "One of the ledgers is called MonthlySalesSummary. It has one row per product per month, with the total sales for that month.",
+      "prompt": "Why shouldn’t MonthlySalesSummary be the fact table for “revenue by product, date and country”?",
+      "options": [
+        { "id": "detail", "text": "It’s already summarised: the country and the individual dates are lost", "feedback": "Exactly. Its grain is product × month. Sales from different countries and days have already been added together, so the model could never split them back out." },
+        { "id": "size", "text": "It has too few rows to be useful", "feedback": "Row count isn’t the problem. A small table at the right grain would be fine. The problem is the detail it has already lost." },
+        { "id": "name", "text": "Its name doesn’t start with “Fact”", "feedback": "Naming conventions help, but they don’t decide anything. What matters is the grain: what one row represents." },
+        { "id": "numbers", "text": "It doesn’t contain any sales numbers", "feedback": "It does have a TotalSales column, but those totals are already added up by month, with no country." }
+      ],
+      "correct": "detail",
+      "hints": [
+        "What does one row of MonthlySalesSummary represent?",
+        "Could you find Norway’s sales on 5 January from a table of monthly product totals?"
+      ],
+      "explanation": "A fact table should be at the finest grain the questions need. Pre-summarised tables are handy for a quick look, but they have thrown away detail the model can’t get back.",
+      "skills": ["grain"],
+      "xp": 10
+    },
+    {
+      "id": "lesson-keys",
+      "type": "lesson",
+      "title": "Learn: keys, relationships and cardinality",
+      "speaker": "astrid",
+      "skills": ["keys", "cardinality"],
+      "action": "Open the modelling lab",
+      "lesson": {
+        "concept": "Keys, relationships and cardinality",
+        "objective": "Connect tables with keys, and choose the right cardinality and filter direction.",
+        "plainEnglish": "A primary key uniquely identifies each row in a table, like BookKey in DimBook. A foreign key is that same ID stored in another table to point at the row, like BookKey in OrdersFact. A relationship joins a foreign key to its primary key. Cardinality says how many rows can match on each side: many orders can share one book, so OrdersFact → DimBook is many-to-one (*:1). The filter direction says which way a selection flows. In a star schema, choosing a book filters the orders: a single direction, from the dimension to the fact table.",
+        "analogy": "Library cards. Each member has one unique card number (the primary key). The loans log writes that number on every loan (the foreign key). Many loans, one member: many-to-one.",
+        "example": {
+          "kind": "text",
+          "code": "OrdersFact.BookKey  * ───────── 1  DimBook.BookKey\n(repeats: many orders)        (unique: one row per book)\n\nFilter flows one way:  DimBook ──▶ OrdersFact",
+          "caption": "The “1” side must be unique; the “*” side may repeat."
+        },
+        "whyItMatters": "Correct relationships let a report total sales by any mix of product, date and country, without counting anything twice.",
+        "commonMistake": "Joining a column that isn’t a key, such as a quantity, or trusting a “key” column that contains duplicates. Duplicate keys create many-to-many relationships, which can count the same sale more than once.",
+        "takeaway": "Foreign key (many) → primary key (one), with filters flowing from dimension to fact.",
+        "simplification": "Tools such as Power BI also allow many-to-many and two-way (“both”) relationships for special cases. They are powerful but easy to misuse, so this lab follows the beginner rule: many-to-one, single direction."
+      }
+    },
+    {
+      "id": "build-star",
+      "type": "schema",
+      "phase": "practice",
+      "title": "The modelling lab",
+      "speaker": "astrid",
+      "context": "Here are all the ledgers the scribes gave us. Not every one belongs in the model. Inspect them before you build.",
+      "prompt": "Build a star schema that lets the Jarl see revenue by product, date and country. Add the tables you need, mark the fact table, connect each key, then set every relationship’s cardinality and direction.",
+      "tables": [
+        {
+          "id": "FactSales",
+          "label": "FactSales",
+          "grain": "One row per sales transaction",
+          "grainLevel": "transaction",
+          "description": "Records each sale: when, what, where and how much.",
+          "columns": [
+            { "name": "SalesID", "key": "pk", "description": "Unique ID of the sale" },
+            { "name": "DateKey", "key": "fk", "description": "Date of the sale (yyyymmdd)" },
+            { "name": "ProductKey", "key": "fk", "description": "Product sold" },
+            { "name": "CountryKey", "key": "fk", "description": "Country of the sale" },
+            { "name": "Quantity", "description": "Items sold" },
+            { "name": "SalesAmount", "description": "Revenue from the sale" }
+          ],
+          "rows": [
+            [1, 20240105, 101, 1, 2, 48.0],
+            [2, 20240105, 102, 2, 1, 35.0],
+            [3, 20240112, 101, 3, 1, 24.0],
+            [4, 20240203, 103, 1, 3, 27.0],
+            [5, 20240203, 104, 4, 1, 60.0],
+            [6, 20240218, 102, 1, 2, 70.0],
+            [7, 20240302, 101, 2, 4, 96.0],
+            [8, 20240302, 103, 3, 1, 9.0],
+            [9, 20240315, 104, 2, 2, 120.0],
+            [10, 20240315, 102, 4, 1, 35.0]
+          ]
+        },
+        {
+          "id": "DimProduct",
+          "label": "DimProduct",
+          "grain": "One row per product",
+          "grainLevel": "lookup",
+          "description": "Describes each product: its name, category and price.",
+          "columns": [
+            { "name": "ProductKey", "key": "pk", "description": "Unique product ID" },
+            { "name": "ProductName" },
+            { "name": "Category" },
+            { "name": "UnitPrice" }
+          ],
+          "rows": [
+            [101, "Lantern", "Lighting", 24],
+            [102, "Map", "Navigation", 35],
+            [103, "Compass", "Navigation", 9],
+            [104, "Spyglass", "Navigation", 60]
+          ]
+        },
+        {
+          "id": "DimDate",
+          "label": "DimDate",
+          "grain": "One row per calendar date",
+          "grainLevel": "lookup",
+          "description": "Describes each date: its month and year, so sales can be grouped by time.",
+          "columns": [
+            { "name": "DateKey", "key": "pk", "description": "Unique date ID (yyyymmdd)" },
+            { "name": "Date" },
+            { "name": "Month" },
+            { "name": "Year" }
+          ],
+          "rows": [
+            [20240105, "2024-01-05", "January", 2024],
+            [20240112, "2024-01-12", "January", 2024],
+            [20240203, "2024-02-03", "February", 2024],
+            [20240218, "2024-02-18", "February", 2024],
+            [20240302, "2024-03-02", "March", 2024],
+            [20240315, "2024-03-15", "March", 2024]
+          ]
+        },
+        {
+          "id": "DimCountry",
+          "label": "DimCountry",
+          "grain": "One row per country",
+          "grainLevel": "lookup",
+          "description": "Describes each country the island trades with.",
+          "columns": [
+            { "name": "CountryKey", "key": "pk", "description": "Unique country ID" },
+            { "name": "Country" },
+            { "name": "Region" }
+          ],
+          "rows": [
+            [1, "Norway", "Nordic"],
+            [2, "Denmark", "Nordic"],
+            [3, "Iceland", "Nordic"],
+            [4, "Ireland", "Western Europe"]
+          ]
+        },
+        {
+          "id": "MonthlySalesSummary",
+          "label": "MonthlySalesSummary",
+          "grain": "One row per product per month",
+          "grainLevel": "aggregated",
+          "description": "A pre-calculated monthly report: handy for a quick look, but already summarised, with no country.",
+          "columns": [
+            { "name": "MonthKey", "key": "fk", "description": "Month (yyyymm)" },
+            { "name": "ProductKey", "key": "fk" },
+            { "name": "TotalSales" }
+          ],
+          "rows": [
+            [202401, 101, 72.0],
+            [202401, 102, 35.0],
+            [202402, 103, 27.0],
+            [202402, 104, 60.0],
+            [202402, 102, 70.0],
+            [202403, 101, 96.0],
+            [202403, 103, 9.0],
+            [202403, 104, 120.0],
+            [202403, 102, 35.0]
+          ]
+        },
+        {
+          "id": "ProductList_Export",
+          "label": "ProductList_Export",
+          "grain": "Meant to be one row per product",
+          "grainLevel": "lookup",
+          "description": "An old product export from another system. Check its keys before trusting it.",
+          "columns": [
+            { "name": "ProductKey", "key": "pk", "description": "Product ID (from the export)" },
+            { "name": "ProductName" }
+          ],
+          "rows": [
+            [101, "Lantern"],
+            [102, "Map"],
+            [102, "Map"],
+            [103, "Compass"],
+            [104, "Spyglass"]
+          ]
+        }
+      ],
+      "requiredTables": ["FactSales", "DimProduct", "DimDate", "DimCountry"],
+      "factTable": "FactSales",
+      "dimensions": ["DimProduct", "DimDate", "DimCountry"],
+      "solution": {
+        "tables": ["FactSales", "DimProduct", "DimDate", "DimCountry"],
+        "relationships": [
+          { "from": { "table": "FactSales", "column": "ProductKey" }, "to": { "table": "DimProduct", "column": "ProductKey" }, "cardinality": "many-to-one", "direction": "single" },
+          { "from": { "table": "FactSales", "column": "DateKey" }, "to": { "table": "DimDate", "column": "DateKey" }, "cardinality": "many-to-one", "direction": "single" },
+          { "from": { "table": "FactSales", "column": "CountryKey" }, "to": { "table": "DimCountry", "column": "CountryKey" }, "cardinality": "many-to-one", "direction": "single" }
+        ]
+      },
+      "successFeedback": "Your star schema works: three dimensions, each joined to FactSales by its unique key.",
+      "hints": [
+        "Start with the table that has one row per sale. That’s the fact table, at the centre of the star. The other tables you need start with “Dim”.",
+        "Each Dim table has a unique key ending in “Key”. Connect it to the column with the same name in FactSales by selecting the two columns one after the other.",
+        "A product appears many times in FactSales but once in DimProduct, so that relationship is many-to-one. Keep every filter direction single."
+      ],
+      "explanation": "Each dimension’s unique key matches a repeating foreign key in FactSales, so every sale finds exactly one product, one date and one country. Filters flow from the dimensions into the fact table, so choosing “Norway” or “March” narrows down the sales without ambiguity, and nothing is counted twice.",
+      "skills": ["fact-dimension", "keys", "cardinality", "star-schema"],
+      "xp": 40
+    },
+    {
+      "id": "filter-path",
+      "type": "choice",
+      "phase": "assessment",
+      "title": "Check your understanding",
+      "speaker": "astrid",
+      "context": "Using your model, the Jarl clicks “Norway” on a report.",
+      "prompt": "What happens next?",
+      "options": [
+        { "id": "filters", "text": "DimCountry filters FactSales to Norway’s sales, and the revenue totals update", "feedback": "Yes. The filter flows from the dimension (DimCountry) along the relationship into the fact table, keeping only Norway’s rows." },
+        { "id": "products", "text": "DimProduct shows only products made in Norway", "feedback": "DimProduct isn’t connected to DimCountry. Filters flow from a dimension into the fact table, not across to other dimensions." },
+        { "id": "nothing", "text": "Nothing: dimension tables can’t filter facts", "feedback": "Filtering facts is exactly what dimensions are for, through the single-direction relationship." },
+        { "id": "double", "text": "Every Norwegian sale is counted twice", "feedback": "That would only happen with duplicate keys (a many-to-many relationship). DimCountry’s keys are unique, so each sale matches once." }
+      ],
+      "correct": "filters",
+      "hints": [
+        "Follow the arrow on the relationship: which way does the filter flow?",
+        "DimCountry is joined to one table only. Which one?"
+      ],
+      "explanation": "In a star schema, selecting a value in a dimension filters the fact table through its relationship. Because each key is unique, every sale is counted once, and the totals are right.",
+      "skills": ["cardinality", "star-schema"],
+      "xp": 15
+    },
+    {
+      "id": "ending",
+      "type": "ending",
+      "title": "The model holds",
+      "speaker": "astrid",
+      "lines": [
+        "Revenue by product, by month and by country, all from one clean model. The Jarl is speechless, which is rare.",
+        "You didn’t just connect boxes. You checked that the keys were unique, that every sale found its match, and that filters flow the right way.",
+        "Every Power BI report stands on a model like this one. You’ve drawn your first star chart."
+      ],
+      "action": "See what you learned"
+    }
+  ]
+}

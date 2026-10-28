@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "id": "digital-foundations",
+      "number": 0,
+      "title": "Digital Foundations",
+      "subject": "AI literacy, Python, spreadsheets and KPIs",
+      "level": "Beginner",
+      "summary": "Everyday digital skills: checking AI answers, reading code, building spreadsheet formulas and understanding business measures.",
+      "quests": ["missing-signal", "broken-tally", "market-ledger", "great-hall-dashboard"],
+      "planned": [],
+      "requires": []
+    },
+    {
+      "id": "sql-essentials",
+      "number": 1,
+      "title": "SQL Essentials",
+      "subject": "SQL",
+      "level": "Beginner",
+      "summary": "Ask a database questions: select, filter, group, sort and interpret.",
+      "quests": ["the-ledger"],
+      "planned": ["Joining tables with JOIN", "Filtering groups with HAVING", "Fill-in-the-blank and debug-the-query exercises"],
+      "requires": ["digital-foundations"]
+    },
+    {
+      "id": "power-bi-fundamentals",
+      "number": 2,
+      "title": "Power BI Fundamentals",
+      "subject": "Power BI",
+      "level": "Beginner",
+      "summary": "Load and clean data, build a first report and choose visuals.",
+      "quests": [],
+      "planned": ["Importing and cleaning data with Power Query", "Building your first report", "Choosing and formatting visuals"],
+      "requires": ["sql-essentials"]
+    },
+    {
+      "id": "dax-core",
+      "number": 3,
+      "title": "DAX Core",
+      "subject": "DAX",
+      "level": "Intermediate",
+      "summary": "Write measures that calculate the numbers in a report.",
+      "quests": [],
+      "planned": ["Calculated columns versus measures", "SUM, AVERAGE and COUNTROWS", "CALCULATE basics"],
+      "requires": ["power-bi-fundamentals", "data-modelling"]
+    },
+    {
+      "id": "advanced-dax",
+      "number": 4,
+      "title": "Advanced DAX",
+      "subject": "DAX",
+      "level": "Advanced",
+      "summary": "Master filter context, time intelligence and iterators.",
+      "quests": [],
+      "planned": ["Filter context and context transition", "Time intelligence", "Iterator functions such as SUMX"],
+      "requires": ["dax-core"]
+    },
+    {
+      "id": "data-modelling",
+      "number": 5,
+      "title": "Data Modelling",
+      "subject": "Data modelling",
+      "level": "Intermediate",
+      "summary": "Design models that answer business questions correctly: facts, dimensions, keys and relationships.",
+      "quests": ["star-chart"],
+      "planned": ["Relationship pitfalls: many-to-many and two-way filters", "Role-playing date dimensions", "An introduction to slowly changing dimensions"],
+      "requires": ["sql-essentials"]
+    },
+    {
+      "id": "advanced-power-bi",
+      "number": 6,
+      "title": "Advanced Power BI",
+      "subject": "Power BI",
+      "level": "Advanced",
+      "summary": "Secure, tune and publish reports for real teams.",
+      "quests": [],
+      "planned": ["Row-level security", "Performance tuning", "Publishing and scheduled refresh"],
+      "requires": ["advanced-dax"]
+    },
+    {
+      "id": "analytics-projects",
+      "number": 7,
+      "title": "Analytics and Projects",
+      "subject": "Capstone",
+      "level": "Capstone",
+      "summary": "Bring every skill together in an end-to-end analysis.",
+      "quests": [],
+      "planned": ["End-to-end sales analysis project", "Presenting insights to stakeholders"],
+      "requires": ["advanced-power-bi", "data-modelling"]
+    }
+  ]
+}
