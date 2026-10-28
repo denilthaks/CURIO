@@ -154,11 +154,11 @@ describe('evidence picks through the save store', () => {
 });
 
 describe('the usability-test start save (docs/USABILITY-TEST.md)', () => {
-  test('is accepted, asks for a name, and opens the Trading Market at the Merchant’s Ledger', () => {
-    const p = load({ version: 4, player: null,
+  test('is accepted, keeps the participant code as the player, and opens the Trading Market at the Merchant’s Ledger', () => {
+    const p = load({ version: 4, player: { name: 'P1', emblem: 'fox' },
       quests: { 'missing-signal': { run: null, runXp: 0, lastRun: null, lastXp: 60, bestXp: 60, bestStars: 3, completed: true, completions: 1, mastered: true, bestMastery: null, bestMedal: 'none', bestSilver: 0 } },
       achievements: [], lessons: [], settings: { motion: 'system', textSize: 'normal', graphics: 'auto' }, concepts: {} });
-    expect(p.player).toBeNull();
+    expect(p.player).toEqual({ name: 'P1', emblem: 'fox' }); // no identity screen, which would send the player to The Missing Signal
     expect(progression.isDestinationUnlocked(dest('trading-market'), p)).toBe(true);
     expect(progression.questStatus(q, dest('trading-market'), p)).toBe('available');
   });

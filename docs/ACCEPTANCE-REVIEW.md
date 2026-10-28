@@ -347,3 +347,37 @@ In every case the 3D stage never covered the top bar and there were no page erro
 - Practice rounds still have no pinned HUD (none existed before); on phones their top bar now scrolls away like the quest's.
 - **Next milestone, as agreed:** run the usability sessions, the screen-reader checklist and the real-device checklist in `docs/USABILITY-TEST.md`. No further feature expansion before that.
 
+
+## 11. Real-player usability validation: preparation (sessions pending)
+
+**No participant sessions, screen-reader checks or real-device checks have been performed.** I cannot recruit or observe people, or operate a physical phone or a screen reader, from this environment. So those tasks are **pending**, with a handoff kit ready for whoever runs them. Nothing in this section is a usability finding.
+
+### 11.1 Done in this pass
+
+- **Session kit (`docs/usability/`):**
+  - organiser handoff checklist, intervention codes and rules, consent script and data handling (`README.md`);
+  - per-participant observer sheet (`OBSERVER-SHEET.md`);
+  - an empty results and acceptance-review template (`RESULTS.md`);
+  - checklist results with every real item marked **Not tested** (`CHECKLIST-RESULTS.md`).
+- **Automated pre-check (`tools/usability-precheck.cjs`):** it verifies the session setup and the focus and naming behaviour the screen-reader checklist depends on, in headless Chromium. 12 of 12 checks pass. This is reported separately from, and does not count as, the screen-reader checklist.
+- **Protocol corrections (`docs/USABILITY-TEST.md`), factual only, still "planned, not run":**
+  1. **Setup defect found and worked around.** With the original snippet (`player: null`), the identity screen's "Begin the quest" always continues to The Missing Signal. A participant who chose the Market would have been sent to the wrong quest. The snippet now sets the player to the participant code (P1…P5), which also keeps names out of saves. A unit test checks the new snippet.
+  2. The snippet lands on the home page, not the identity screen; the steps now say so.
+  3. Phones have no console, so the protocol now gives remote-debugging steps (Chrome `chrome://inspect`, Safari Develop menu), the LAN serving command, and the existing fallback (play The Missing Signal first, record the time).
+  4. Device item D2 now describes the top bar scrolling away during a quest (since `2434514`).
+- **Emulated phone checks:** rotation mid-step keeps input with no sideways scroll; the landscape HUD covers 22% of a 390 px-high screen. Emulation only.
+
+### 11.2 Product issue noted (not changed; needs approval)
+
+- **U1 (pre-existing on `main`, low severity for normal play):** after the identity screen, "Begin the quest" always opens The Missing Signal, whatever quest the player chose. In normal play a new player has not unlocked the Market, so this rarely matters. It does matter for test setups and for anyone whose save has progress but no player (e.g. after editing a save). Proposed fix, if wanted: return to the quest the player chose. This touches `StartScreen.tsx`, outside this chapter, so I have not changed it.
+
+### 11.3 Pending, in order
+
+1. Run the 3–5 sessions with the kit (`docs/usability/README.md` §1), including at least one phone and one laptop.
+2. Run the screen-reader checklist in at least one pairing, ideally all three, with an experienced screen-reader user.
+3. Run the device checklist on one Android phone and one iPhone.
+4. Fill in `RESULTS.md` and `CHECKLIST-RESULTS.md` from those records only. Then review against the per-participant completion criteria and the proposed preview gate in `RESULTS.md` §4, which is a proposal awaiting your approval.
+
+### 11.4 Readiness
+
+**Not ready for a wider preview.** That is not because of a known defect: the evidence a preview needs (real players, assistive technology, real devices) does not exist yet. The build is ready for the small internal sessions above.

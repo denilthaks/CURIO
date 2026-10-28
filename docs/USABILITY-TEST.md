@@ -23,17 +23,24 @@ Three to five people who have never seen CurioTrail play the Trading Market chap
 
 The participant reads a printed or on-screen instruction sheet and plays alone. An observer may sit silently, or the session is screen-recorded with consent. Nobody gives help during play.
 
-- **Build:** the local build of branch `feature/game-first-market-slice` (commit noted in the session log), served locally. Never use the live site.
+- **Build:** the local build of branch `feature/game-first-market-slice` (commit noted in the session log), served locally. Never use the live site. For laptop sessions: `npm run build && npx vite preview --port 4174 --strictPort`, then open `http://localhost:4174/`. For phone sessions, serve it on the local network: `npx vite preview --host --port 4174 --strictPort`, then open `http://<computer's LAN address>:4174/` on the phone (same Wi-Fi; allow the port through the computer's firewall).
+- **Pre-check:** before the first session, run `node tools/usability-precheck.cjs` against the served build. It must pass. It checks this setup and the focus and naming behaviour that screen readers rely on; it is not a substitute for section 8.
 - **Fresh profile:** clear site data first, so there is no earlier save.
-- **Start state:** the Trading Market opens after "The Missing Signal". So that participants start at the Market, the organiser (not the participant) opens the browser console on the game page before the session, runs the snippet below, then reloads. The participant still chooses their own name and emblem on the first screen.
+- **Start state:** the Trading Market opens after "The Missing Signal". So that participants start at the Market, the organiser (not the participant) opens the browser console on the game page before the session, runs the snippet below with that participant's code ("P1"…"P5") as the name, then reloads.
+
+  The player is set in advance on purpose. The identity screen ("Begin the quest") always continues to The Missing Signal, so a participant who chose a name there would be sent to the wrong quest (verified by the pre-check, which also confirms the setup below). Using the participant code as the name also keeps personal names out of the save.
 
   ```js
-  localStorage.setItem('curiotrail.progress', JSON.stringify({ version: 4, player: null,
+  localStorage.setItem('curiotrail.progress', JSON.stringify({ version: 4, player: { name: 'P1', emblem: 'fox' },
     quests: { 'missing-signal': { run: null, runXp: 0, lastRun: null, lastXp: 60, bestXp: 60, bestStars: 3, completed: true, completions: 1, mastered: true, bestMastery: null, bestMedal: 'none', bestSilver: 0 } },
     achievements: [], lessons: [], settings: { motion: 'system', textSize: 'normal', graphics: 'auto' }, concepts: {} }));
   ```
 
-  Check before the first session that this lands on the identity screen and then shows the Trading Market as open. If it does not, have participants play "The Missing Signal" first and note the extra time.
+  After the reload the game shows its home page. "Explore the map" leads to the island, where the Trading Market is open and its quest can be started. Check this before each session; `tools/usability-precheck.cjs` checks it automatically.
+
+  **On a phone**, run the snippet through remote debugging: for Android, Chrome on the computer → `chrome://inspect` → the phone's tab → Console; for an iPhone, Safari on a Mac → Develop → the phone → the page → Console. If remote debugging is not available, have the participant play "The Missing Signal" first and record the extra time; this is not an intervention.
+- **Between participants:** clear the site data (or run the snippet again with the next code), reload, and check the home page appears.
+- **Records:** use the templates in `docs/usability/` (observer sheet, results, checklist results). File names use participant codes only.
 - **Recording:** screen recording with audio for think-aloud, if the participant consents. Otherwise use the observer's notes only.
 - **Time box:** 35 minutes of play, plus 10 minutes of questions.
 
@@ -122,7 +129,7 @@ Test with at least one of each pairing where available: NVDA + Firefox (Windows)
 Devices: at least one small Android phone (≤ 6.1", mid-range) and one iPhone. Also one tablet if available. Use the device's default browser.
 
 - [ ] The world loads, or the 2D fallback appears without errors. Note load time and whether the device heats up or lags.
-- [ ] The pinned HUD stays below the top bar while scrolling, in portrait and in landscape. Note how much of the screen it covers.
+- [ ] During a quest the site top bar scrolls away and the quest HUD stays pinned at the top while scrolling, in portrait and in landscape; scrolling up brings the top bar back. Note how much of the screen the HUD covers (emulation measured 10–14% in portrait and 22% in landscape on a 390 px-high screen).
 - [ ] Ledger cells are easy to tap (no mis-taps on neighbouring cells); wide ledgers scroll sideways inside their frame, not the page.
 - [ ] The on-screen keyboard does not hide the formula field or the name box while typing.
 - [ ] Dragging fragments works with a finger, and tapping them works too.
