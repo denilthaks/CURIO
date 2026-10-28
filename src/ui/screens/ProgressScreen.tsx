@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useGame } from '../../app/game';
 import { navigate } from '../../app/router';
 import { announce } from '../../app/a11y';
-import { levelFor, LEVELS, maxXp, restoreRun } from '../../engine/game-engine';
+import { isGameQuest, levelFor, LEVELS, maxXp, restoreRun } from '../../engine/game-engine';
 import { questRecord, totalStars, totalXp, withReplay, withSettings, type Settings } from '../../engine/progress-store';
 import { destinationForQuest, moduleStatus, questStatus, type ModuleStatus } from '../../engine/progression';
 import type { Quality } from '../../world/capabilities';
@@ -94,7 +94,7 @@ export function ProgressScreen({ webgl, autoQuality, stageStatus, renderer }: Pr
         <div className="table-scroll" tabIndex={0} role="region" aria-label="Quest progress">
           <table className="progress-table">
             <thead>
-              <tr><th scope="col">Quest</th><th scope="col">Status</th><th scope="col">Best XP</th><th scope="col">Stars</th><th scope="col">Times finished</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
+              <tr><th scope="col">Quest</th><th scope="col">Status</th><th scope="col">Best XP</th><th scope="col">Rating</th><th scope="col">Times finished</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
             </thead>
             <tbody>
               {ordered.map((q) => {
@@ -107,7 +107,7 @@ export function ProgressScreen({ webgl, autoQuality, stageStatus, renderer }: Pr
                     <th scope="row"><span className="q-num">{String(q.number).padStart(2, '0')}</span> {q.title}<span className="q-sub">{q.subject} · {dest.name}</span></th>
                     <td><StatusChip status={status} />{run && <span className="q-sub">Step {run.sceneIndex + 1} of {q.scenes.length}</span>}</td>
                     <td>{record.bestXp} / {maxXp(q)}</td>
-                    <td><Stars count={record.bestStars} /></td>
+                    <td>{isGameQuest(q) ? <span className="q-medal">{{ gold: '🥇 Gold', silver: '🥈 Silver', bronze: '🥉 Bronze', none: record.completed ? 'No medal yet' : '—' }[record.bestMedal]}</span> : <Stars count={record.bestStars} />}</td>
                     <td>{record.completions}</td>
                     <td className="actions-cell">
                       {status === 'in-progress' && <a className="btn btn-sm btn-primary" href={`#/quest/${q.id}`}>Continue</a>}

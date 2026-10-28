@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GameProvider, useGame, type Content } from './game';
-import { navigate, useRoute, type Route } from './router';
+import { identityRedirect, navigate, useRoute, type Route } from './router';
 import { applySettings, focusMainHeading, prefersReducedMotion } from './a11y';
-import { validateCurriculum, validateQuest, validateRequirements, validateWorld } from '../engine/quest-validation';
-import type { Curriculum, Quest, World } from '../engine/types';
+import { validateCodex, validateCurriculum, validateQuest, validateRequirements, validateWorld } from '../engine/quest-validation';
+import type { Codex, Curriculum, Quest, World } from '../engine/types';
 import { destinationStatus, destinationForQuest, questStatus } from '../engine/progression';
 import { questRecord } from '../engine/progress-store';
 import { detectQuality, webglAvailable } from '../world/capabilities';
@@ -18,6 +18,7 @@ import { MapScreen } from '../ui/screens/MapScreen';
 import { QuestScreen } from '../ui/screens/QuestScreen';
 import { CompleteScreen } from '../ui/screens/CompleteScreen';
 import { ProgressScreen } from '../ui/screens/ProgressScreen';
+import { PracticeScreen } from '../ui/screens/PracticeScreen';
 
 export const FEEDBACK_URL =
   'https://github.com/denilthaks/CURIO/issues/new?title=CurioTrail%20feedback&body=What%20felt%20confusing%3F%0A%0AWhat%20did%20you%20learn%3F%0A%0AWould%20you%20try%20another%20quest%3F';
@@ -43,7 +44,10 @@ async function loadContent(): Promise<Content> {
   const curriculum = await fetchJson<Curriculum>('data/curriculum.json');
   const curriculumErrors = validateCurriculum(curriculum, ids);
   if (curriculumErrors.length) throw new Error(`Curriculum data is invalid: ${curriculumErrors[0]}`);
-  return { world, quests: new Map(quests.map((q) => [q.id, q])), curriculum };
+  const codex = await fetchJson<Codex>('data/codex.json');
+  const codexErrors = validateCodex(codex, quests);
+  if (codexErrors.length) throw new Error(`Codex data is invalid: ${codexErrors[0]}`);
+  return { world, quests: new Map(quests.map((q) => [q.id, q])), curriculum, codex };
 }
 
 export function App() {
@@ -130,7 +134,7 @@ function Game() {
 
   const mode: CameraMode = useMemo(() => {
     if (route.name === 'map') return { kind: 'map', selected: route.id, panel: narrow ? 'bottom' : 'right' };
-    if (route.name === 'quest') {
+    if (route.name === 'quest' || route.name === 'practice') {
       const dest = destinationForQuest(world, route.id);
       return dest ? { kind: 'focus', destination: dest.id, character: pose.character, pose: pose.pose, panel: narrow ? 'bottom' : 'right' } : { kind: 'overview' };
     }
@@ -143,8 +147,9 @@ function Game() {
     return { kind: 'overview', panel: route.name === 'home' && !narrow ? 'left' : undefined };
   }, [route, world, quests, pose, narrow]);
 
-  const titles: Record<Route['name'], string> = { home: '', start: 'Choose your identity', map: 'The Unmapped World', quest: '', complete: 'Quest complete', progress: 'Progress & settings' };
+  const titles: Record<Route['name'], string> = { home: '', start: 'Choose your identity', map: 'The Unmapped World', quest: '', complete: 'Quest complete', practice: 'Practice round', progress: 'Progress & settings' };
   const questTitle = route.name === 'quest' || route.name === 'complete' ? quests.get(route.id)?.title : '';
+  const onWorld = useMemo(() => (event: 'right' | 'wrong') => rendererRef.current?.react(event), []);
   useEffect(() => {
     const t = questTitle || titles[route.name];
     document.title = t ? `${t} · CurioTrail` : 'CurioTrail: Find your way through the digital world';
@@ -154,9 +159,10 @@ function Game() {
 
   let screen: React.ReactNode = null;
   switch (route.name) {
-    case 'start': screen = <StartScreen />; break;
+    case 'start': screen = <StartScreen next={route.next} />; break;
     case 'map': screen = <MapScreen selected={route.id} renderer={rendererRef} stageStatus={stageStatus} webgl={enabled} />; break;
-    case 'quest': screen = <QuestScreen key={route.id} questId={route.id} onPose={setPose} />; break;
+    case 'quest': screen = <QuestScreen key={route.id} questId={route.id} onPose={setPose} onWorld={onWorld} reducedMotion={reducedMotion} />; break;
+    case 'practice': screen = <PracticeScreen key={`${route.id}/${route.scene}`} questId={route.id} sceneId={route.scene} onPose={setPose} onWorld={onWorld} reducedMotion={reducedMotion} />; break;
     case 'complete': screen = <CompleteScreen questId={route.id} feedbackUrl={FEEDBACK_URL} />; break;
     case 'progress': screen = <ProgressScreen webgl={webgl} autoQuality={autoQuality} stageStatus={stageStatus} renderer={rendererRef} />; break;
     default: screen = <HomeScreen feedbackUrl={FEEDBACK_URL} />;
@@ -188,13 +194,14 @@ function Game() {
 /** Returns a path to redirect to, or null when the route is allowed. */
 function guardRoute(route: Route, game: ReturnType<typeof useGame>): string | null {
   const { progress, world, quests } = game;
-  if (route.name === 'quest' || route.name === 'complete') {
+  if (route.name === 'quest' || route.name === 'complete' || route.name === 'practice') {
     const quest = quests.get(route.id);
     if (!quest) return '/map';
-    if (!progress.player) return '/start';
+    if (!progress.player) return identityRedirect(route);
     const dest = destinationForQuest(world, quest.id);
     if (!dest) return '/map';
-    if (route.name === 'complete' && !questRecord(progress, quest.id).completed) return `/quest/${quest.id}`;
+    if ((route.name === 'complete' || route.name === 'practice') && !questRecord(progress, quest.id).completed) return `/quest/${quest.id}`;
+    if (route.name === 'practice' && !quest.scenes.some((s) => s.id === route.scene)) return `/complete/${quest.id}`;
     if (route.name === 'quest') {
       const status = destinationStatus(dest, quests, progress);
       if (status === 'locked' || status === 'planned') return `/map/${dest.id}`;

@@ -2,11 +2,11 @@
 // progress. One source of truth drives the map, quests, HUD and 3D world.
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Curriculum, Quest, World } from '../engine/types';
+import type { Codex, Curriculum, Quest, World } from '../engine/types';
 import * as store from '../engine/progress-store';
 import type { Progress } from '../engine/progress-store';
 
-export interface Content { world: World; quests: Map<string, Quest>; curriculum: Curriculum }
+export interface Content { world: World; quests: Map<string, Quest>; curriculum: Curriculum; codex: Codex }
 
 export interface CompletionSummary {
   questId: string;
@@ -17,6 +17,10 @@ export interface CompletionSummary {
   bestStarsBefore: number;
   firstCompletion: boolean;
   unlocked: string[]; // destination ids newly unlocked
+  medal?: import('../engine/game-engine').Medal;
+  bestMedalBefore?: import('../engine/game-engine').Medal;
+  mastery?: number | null;
+  mastered?: boolean;
 }
 
 interface GameValue extends Content {

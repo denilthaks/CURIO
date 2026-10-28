@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useGame } from '../../app/game';
-import { navigate } from '../../app/router';
+import { afterIdentityPath, navigate } from '../../app/router';
 import { EMBLEMS, MAX_NAME_LENGTH, withPlayer, type Emblem } from '../../engine/progress-store';
 import { EMBLEM_INFO } from '../emblems';
 
-export function StartScreen() {
-  const { progress, update } = useGame();
+/** `next`: the quest the player chose before being asked who they are, if any. */
+export function StartScreen({ next }: { next?: string }) {
+  const { progress, update, quests } = useGame();
   const [name, setName] = useState(progress.player?.name ?? '');
   const [emblem, setEmblem] = useState<Emblem>(progress.player?.emblem ?? EMBLEMS[0]);
 
@@ -20,7 +21,7 @@ export function StartScreen() {
           onSubmit={(e) => {
             e.preventDefault();
             update((p) => withPlayer(p, name, emblem));
-            navigate('/quest/missing-signal');
+            navigate(afterIdentityPath(next, (id) => quests.has(id)));
           }}
         >
           <div className="field">

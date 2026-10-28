@@ -18,7 +18,7 @@ CurioTrail is a free, open-source, story-driven 3D learning game. You become a *
 | 🌲 The Signal Woods (forest hamlet) | 01 The Missing Signal | AI literacy | Evidence inspection, choices, prompt choice, announcement assembly |
 | 🌲 The Signal Woods | 02 The Ledger in the Woods | SQL | Real SQLite queries: `WHERE`, `GROUP BY` + `SUM`, `ORDER BY` + `LIMIT` |
 | 🛠️ The Viking Workshop | 03 The Broken Tally | Python | Read a real `TypeError`, fix it, write expressions, predict output |
-| ⚖️ The Trading Market (harbour) | 04 The Market Ledger | Excel | Cell addresses, `=B2*C2` with fill-down, `SUM`, `AVERAGE`, `$` references |
+| ⚖️ The Trading Market (harbour) | 04 The Merchant's Ledger | Excel | Game-first slice: Ledger Workshop (drag formula fragments), Rune-word (Wordle-style), Repair Missions, Rune Wheel recall, Rune match, Trader's Gambit, mastery-based medals, an optional silver wager side-game and a boss audit that gates the Great Hall. See [docs/GAME-FIRST-SLICE.md](docs/GAME-FIRST-SLICE.md) |
 | 🏛️ The Great Hall (longhouse) | 05 The Jarl's Dashboard | Business analytics | Drag KPI cards into a dashboard, interpret trade-offs, choose a chart |
 | 🏛️ The Great Hall | 06 The Star Chart (lab) | Data modelling | Build a star schema: add tables, connect keys, set cardinality and direction; the model is checked by real rules |
 | 🧭 The Web Frontier (pier tower) | Planned | Digital tools | Not playable yet |
@@ -77,7 +77,7 @@ Requires Node 22+.
 ```sh
 npm ci
 npm run dev          # http://localhost:5173 with hot reload
-npm test             # 99 unit tests (Vitest)
+npm test             # 139 unit tests (Vitest)
 npm run typecheck
 npm run build        # production build in dist/
 npm run preview      # serve the build
