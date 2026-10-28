@@ -3,10 +3,12 @@
 // a personal prototype, not for accounts or trusted scores.
 
 import type { Quest, Run } from './types';
-import { computeStars, restoreRun } from './game-engine';
+import { computeStars, restoreRun, MEDAL_RANK, type Medal } from './game-engine';
+import { sanitizeConcepts, type ConceptRecord } from './games/mastery';
 
 export const STORAGE_KEY = 'curiotrail.progress';
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
+export const MEDALS: Medal[] = ['none', 'bronze', 'silver', 'gold'];
 export const EMBLEMS = ['fox', 'owl', 'deer', 'badger'] as const;
 export const MAX_NAME_LENGTH = 24;
 const MAX_XP = 100000;
@@ -27,6 +29,11 @@ export interface QuestRecord {
   bestStars: number;
   completed: boolean;
   completions: number;
+  /** Mastery reached (boss threshold met). Unlocks depend on this, not on XP. */
+  mastered: boolean;
+  /** Best boss mastery (0–1) across runs; null when the quest has no boss or it was never scored. */
+  bestMastery: number | null;
+  bestMedal: Medal;
 }
 
 export interface Progress {
@@ -37,6 +44,8 @@ export interface Progress {
   /** Lessons (theory cards) the player has read, as "questId/sceneId". */
   lessons: string[];
   settings: Settings;
+  /** Per-concept mastery (encyclopedia ids), kept on this device only. */
+  concepts: Record<string, ConceptRecord>;
 }
 
 export interface StorageLike {
@@ -50,11 +59,11 @@ export function defaultSettings(): Settings {
 }
 
 export function defaultProgress(): Progress {
-  return { version: SCHEMA_VERSION, player: null, quests: {}, achievements: [], lessons: [], settings: defaultSettings() };
+  return { version: SCHEMA_VERSION, player: null, quests: {}, achievements: [], lessons: [], settings: defaultSettings(), concepts: {} };
 }
 
 export function emptyRecord(): QuestRecord {
-  return { run: null, runXp: 0, lastRun: null, lastXp: 0, bestXp: 0, bestStars: 0, completed: false, completions: 0 };
+  return { run: null, runXp: 0, lastRun: null, lastXp: 0, bestXp: 0, bestStars: 0, completed: false, completions: 0, mastered: false, bestMastery: null, bestMedal: 'none' };
 }
 
 function clampInt(value: unknown, max = MAX_XP): number {
@@ -104,6 +113,10 @@ function sanitizeQuestRecord(id: string, raw: unknown): QuestRecord | null {
     bestStars: clampInt(r.bestStars, 3),
     completed: r.completed === true,
     completions: clampInt(r.completions, 9999),
+    // Saves from before mastery existed: a completed quest keeps its unlocks.
+    mastered: typeof r.mastered === 'boolean' ? r.mastered && r.completed === true : r.completed === true,
+    bestMastery: typeof r.bestMastery === 'number' && r.bestMastery >= 0 && r.bestMastery <= 1 ? r.bestMastery : null,
+    bestMedal: (MEDALS as string[]).includes(r.bestMedal as string) ? (r.bestMedal as Medal) : 'none',
   };
 }
 
@@ -155,6 +168,13 @@ export function migrate(raw: unknown): Record<string, unknown> | null {
     data.lessons = [];
     data.version = 3;
   }
+  if (data.version === 3) {
+    // v4 added mastery (unlocks follow mastery), medals, wagers and per-concept
+    // records. Completed quests are treated as mastered so no one loses an
+    // unlock they already earned (see sanitizeQuestRecord).
+    data.concepts = {};
+    data.version = 4;
+  }
   return data;
 }
 
@@ -182,6 +202,7 @@ export function sanitizeProgress(raw: unknown): Progress {
     achievements,
     lessons,
     settings: sanitizeSettings(data.settings),
+    concepts: sanitizeConcepts(data.concepts),
   };
 }
 
@@ -250,9 +271,19 @@ export function withRun(progress: Progress, run: Run, runXp: number): Progress {
 
 // Record a finished run. Replays keep the best score rather than stacking XP,
 // so total XP reflects demonstrated skill, not repetition.
-export function withCompletion(progress: Progress, run: Run, xp: number, stars: number, achievementId?: string): Progress {
+export interface CompletionResult {
+  /** Whether this run reached mastery. Defaults to true for quests without a boss. */
+  mastered?: boolean;
+  mastery?: number | null;
+  medal?: Medal;
+}
+
+export function withCompletion(progress: Progress, run: Run, xp: number, stars: number, achievementId?: string, result: CompletionResult = {}): Progress {
   const record = questRecord(progress, run.questId);
   const alreadyCounted = Boolean(record.run && record.run.completed);
+  const mastered = result.mastered ?? true;
+  const mastery = typeof result.mastery === 'number' ? result.mastery : null;
+  const medal = result.medal ?? 'none';
   const quests = {
     ...progress.quests,
     [run.questId]: {
@@ -264,6 +295,10 @@ export function withCompletion(progress: Progress, run: Run, xp: number, stars: 
       bestStars: Math.max(record.bestStars, clampInt(stars, 3)),
       completed: true,
       completions: record.completions + (alreadyCounted ? 0 : 1),
+      // Replays never take mastery or a medal away.
+      mastered: record.mastered || mastered,
+      bestMastery: mastery === null ? record.bestMastery : Math.max(record.bestMastery ?? 0, mastery),
+      bestMedal: MEDAL_RANK[medal] > MEDAL_RANK[record.bestMedal] ? medal : record.bestMedal,
     },
   };
   const achievements = achievementId && !progress.achievements.includes(achievementId)
@@ -275,6 +310,11 @@ export function withCompletion(progress: Progress, run: Run, xp: number, stars: 
 export function withReplay(progress: Progress, questId: string): Progress {
   const record = questRecord(progress, questId);
   return { ...progress, quests: { ...progress.quests, [questId]: { ...record, run: null, runXp: 0 } } };
+}
+
+/** Replace the per-concept mastery records (computed by games/mastery.ts). */
+export function withConcepts(progress: Progress, concepts: Record<string, ConceptRecord>): Progress {
+  return concepts === progress.concepts ? progress : { ...progress, concepts };
 }
 
 /** Remember that a lesson was read. Lessons award no XP: XP is for demonstrated skill. */

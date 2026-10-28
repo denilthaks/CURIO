@@ -344,7 +344,7 @@ const tests = [];
     // Directly opening a locked quest is refused.
     await page.goto(`${URL_BASE}#/quest/great-hall-dashboard`);
     await page.waitForURL(/#\/map\/great-hall/);
-    expect((await page.locator('.locked-note').innerText()).includes('The Market Ledger'), 'unlock requirement not explained');
+    expect((await page.locator('.locked-note').innerText()).includes('The Merchant\'s Ledger'), 'unlock requirement not explained');
     await page.waitForTimeout(2000);
     await shot(page, '10-map-locked-destination');
   });
@@ -475,35 +475,87 @@ const tests = [];
     await page.waitForURL(/#\/complete\/broken-tally/);
   });
 
-  await run('P9-6c', 'Excel quest evaluates formulas, fill-down and functions', async () => {
+  await run('P9-6c', 'Excel quest (The Merchant’s Ledger): game mechanics evaluated by the engine; the boss gates the Great Hall', async () => {
     await page.goto(`${URL_BASE}#/quest/market-ledger`);
-    await page.getByRole('button', { name: 'Open the spreadsheet' }).click();
-    await learn(page);
+    await page.getByRole('button', { name: 'Open the ledger' }).click();
     await choose(page, 'B3'); await next(page);
-    await page.locator('input.formula-input').fill('=B2*C2');
+    const typeFormula = async (formula, submit) => {
+      // Keyboard alternative to the fragment bench.
+      if (!(await page.locator('.builder input.formula-input').count())) await page.getByRole('button', { name: /Type it instead/ }).click();
+      await page.locator('.builder input.formula-input').fill(formula);
+      if (submit) await page.getByRole('button', { name: submit }).click();
+    };
+    // Ledger Workshop: fragments tapped from the bench, live preview, fill-down checked by the engine.
+    for (const t of ['=', 'B2', '*', 'C2']) await page.locator('.bench').getByRole('button', { name: t, exact: true }).click();
     expect((await page.locator('td.is-target').innerText()).trim() === '150', 'live preview');
-    await page.getByRole('button', { name: 'Check formula' }).click();
+    await page.getByRole('button', { name: 'Write it in the ledger' }).click();
     await page.waitForSelector('.feedback--correct');
     expect((await feedbackText(page)).includes('D5 = 110'), 'fill-down output');
     await shot(page, '14-excel-challenge');
     await next(page);
-    await learn(page);
-    await page.locator('input.formula-input').fill('=150+120+120+110');
-    await page.getByRole('button', { name: 'Check formula' }).click();
+    await typeFormula('=150+120+120+110', 'Write it in the ledger');
     await page.waitForSelector('[data-feedback]');
     expect((await feedbackText(page)).includes('only uses typed numbers'), 'hard-coded formula accepted');
-    await page.locator('input.formula-input').fill('=SUM(D2:D5)');
-    await page.getByRole('button', { name: 'Check formula' }).click();
-    await page.waitForSelector('.feedback--correct');
-    await next(page);
-    await page.locator('input.formula-input').fill('=AVERAGE(B2:B5)');
-    await page.getByRole('button', { name: 'Check formula' }).click();
-    await page.waitForSelector('.feedback--correct');
-    await next(page);
-    await choose(page, 'Filling down shifted F1'); await next(page);
-    await page.getByRole('button', { name: 'See what you learned' }).click();
+    await typeFormula('=SUM(D2:D5)', 'Write it in the ledger');
+    await page.waitForSelector('.feedback--correct'); await next(page);
+    await typeFormula('=AVERAGE(B2:B5)', 'Write it in the ledger');
+    await page.waitForSelector('.feedback--correct'); await next(page);
+    // Rune-word: invalid guesses don't count; real guesses get Wordle tiles.
+    await page.locator('#rune-rune-max').fill('XYZ'); await page.getByRole('button', { name: 'Carve the rune' }).click();
+    expect((await page.locator('.form-message').innerText()).includes('isn’t an Excel function'), 'invalid guess rejected');
+    await page.locator('#rune-rune-max').fill('MAX'); await page.getByRole('button', { name: 'Carve the rune' }).click();
+    await page.waitForSelector('.feedback--correct'); await next(page);
+    await typeFormula('=MAX(B2:B5)', 'Write it in the ledger');
+    await page.waitForSelector('.feedback--correct'); await next(page);
+    // Repair missions: diagnosis + fix.
+    await page.locator('input[name="dx-absolute"][value="drift"]').check();
+    await page.locator('#fix-absolute').fill('=B2*$E$2');
+    await page.getByRole('button', { name: 'Repair the ledger' }).click();
+    await page.waitForSelector('.feedback--correct'); await next(page);
+    await page.locator('input[name="dx-profit-fix"][value="order"]').check();
+    await page.locator('#fix-profit-fix').fill('=(B2-C2)*D2');
+    await page.getByRole('button', { name: 'Repair the ledger' }).click();
+    await page.waitForSelector('.feedback--correct'); await next(page);
+    // Rune match via the select-menu alternative.
+    for (const [l, r] of [['div0', 'zero'], ['name', 'spell'], ['value', 'text'], ['ref', 'deleted']]) await page.locator(`#m-error-runes-${l}`).selectOption(r);
+    await page.getByRole('button', { name: 'Break the curse' }).click();
+    await page.waitForSelector('.feedback--correct'); await next(page);
+    // Rune wheel: spin, then answer whichever rune it lands on.
+    const quest = JSON.parse(fs.readFileSync(path.join(DIST, 'data', 'quests', 'market-ledger.json'), 'utf8'));
+    await page.getByRole('button', { name: 'Spin the wheel' }).click();
+    await page.waitForSelector('.wheel-landed strong');
+    await page.waitForTimeout(2800);
+    const landed = (await page.locator('.wheel-landed strong').innerText()).trim();
+    const seg = quest.scenes.find((s) => s.id === 'rune-wheel').segments.find((g) => g.label === landed);
+    if (seg.challenge.kind === 'choice') await page.locator('label.option', { hasText: seg.challenge.options.find((o) => o.id === seg.challenge.correct).text }).first().click();
+    else await page.locator('.challenge .formula-input').fill(seg.challenge.solution);
+    await page.getByRole('button', { name: 'Answer the rune' }).click();
+    await page.waitForSelector('.feedback--correct'); await next(page);
+    // Trader's Gambit: the player's orders and formula decide the outcome.
+    await typeFormula('=B2*MIN(D2,E2)-C2*E2');
+    for (const [i, n] of [6, 15, 0, 22].entries()) await page.locator(`#ord-restock-${i}`).fill(String(n));
+    await page.getByRole('button', { name: 'Send the order to the ship' }).click();
+    await page.waitForSelector('.feedback--correct'); await next(page);
+    await choose(page, 'Profit was 50'); await next(page);
+    await page.getByRole('button', { name: 'Face the audit' }).click();
+    // Boss: the data varies per run, so the answers are worked out from the screen.
+    await typeFormula('=B2*C2', 'Write it in the ledger');
+    await page.waitForSelector('.feedback--correct'); await next(page);
+    await page.locator('input[name="dx-audit-tax"][value="range"]').check();
+    await page.locator('#fix-audit-tax').fill('=SUM(B2:B5)*D2');
+    await page.getByRole('button', { name: 'Repair the ledger' }).click();
+    await page.waitForSelector('.feedback--correct'); await next(page);
+    const rows = async () => page.locator('.ledger tbody tr').evaluateAll((trs) => trs.slice(1).map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent.trim())));
+    const odd = (await rows()).find((r) => Number(r[1]) * Number(r[2]) !== Number(r[3]))[0];
+    await choose(page, odd); await next(page);
+    await page.locator('#rune-audit-rune').fill('AVERAGE'); await page.getByRole('button', { name: 'Carve the rune' }).click();
+    await page.waitForSelector('.feedback--correct'); await next(page);
+    const drop = (await rows()).map((r) => [r[0], Number(r[1]) - Number(r[2])]).sort((a, b) => a[1] - b[1])[0][0];
+    await choose(page, `${drop} — the lowest`); await next(page);
+    await page.getByRole('button', { name: 'See your results' }).click();
     await page.waitForURL(/#\/complete\/market-ledger/);
-    expect((await page.locator('.unlocked').innerText()).includes('The Great Hall'), 'Great Hall should unlock after Excel');
+    expect((await page.locator('.medal-name').innerText()).includes('medal'), 'medal shown');
+    expect((await page.locator('.unlocked').innerText()).includes('The Great Hall'), 'Great Hall should unlock after mastering the audit');
   });
 
   await run('P9-6d', 'KPI dashboard: drag-and-drop and keyboard alternative, evaluated by the engine', async () => {
@@ -610,7 +662,7 @@ const tests = [];
     expect((await page.locator('.badge-card').innerText()).includes('Star Cartographer'), 'badge');
     const p = await saved(page);
     expect(p.lessons.includes('star-chart/lesson-keys') && p.lessons.includes('the-ledger/lesson-group-by'), `lessons not saved: ${p.lessons}`);
-    expect(p.version === 3, 'save version');
+    expect(p.version === 4, 'save version');
   });
 
   await run('P9-7/8', 'Rewards come from the engine and persist; destination states update after refresh', async () => {
