@@ -32,6 +32,8 @@ CurioTrail is a free, open-source, story-driven 3D learning game. You become a *
 
 **Learning path:** eight modules, from 0 Digital Foundations to 7 Analytics and Projects (see *Progress & settings*). Modules 0, 1 and 5 have playable content; modules 2, 3, 4, 6 and 7 are listed as planned, with their topics.
 
+**Learner profile:** *Progress & settings* opens with the player's profile: a quest trail, an all-time overview and *field notes* built from a learning history kept only in this browser. Field notes show attempts and retries per challenge, mastery score per finished run, what happened after each wrong answer, a journey timeline and observations that appear only when the data supports them. Players can view, pause or delete the history there. CurioTrail uses no cookies, analytics or advertising, so there is no cookie banner yet; the design for one is in `prototype/profile-analytics/`. Metric definitions are at the top of `src/engine/learning-analytics.ts`.
+
 **Scoring:**
 - Each challenge gives XP, plus a first-try bonus.
 - Wrong answers give the feedback written for that answer and progressively stronger hints.
@@ -49,7 +51,8 @@ Quest data (JSON) → game rules (src/engine, pure TS) → player state (progres
 
 - **`src/engine/`** has no DOM, React or Three.js. It holds:
   - `game-engine.ts`: progression, evaluation of every challenge type, XP, stars, skill report and levels
-  - `progress-store.ts`: versioned localStorage save (schema v2 with v1→v2 migration) that validates and clamps all loaded data
+  - `progress-store.ts`: versioned localStorage save (schema v5, migrating every older version) that validates and clamps all loaded data, including the on-device learning history
+  - `learning-analytics.ts`: the learner profile's field notes (attempts and retries, mastery over time, what happens after a wrong answer, journey and insights), all computed from that one history
   - `progression.ts`: unlock and destination states
   - `quest-validation.ts`: content checks, including running every Python and Excel solution
   - `python-lite.ts`: a sandboxed evaluator for a subset of Python expressions, with CPython-style errors
@@ -63,7 +66,7 @@ Quest data (JSON) → game rules (src/engine, pure TS) → player state (progres
   - Map (B)
   - Quest (C–F)
   - Completion (G)
-  - Progress & settings (I)
+  - Progress & settings (I): the learner profile (quest trail, overview, field notes, privacy controls) above the learning path, quests and settings
   - Mobile layouts (H) throughout
 
   All text is HTML over the canvas. A 2D fallback map is used when WebGL is unavailable, switched off or fails, and every quest still works.
@@ -77,7 +80,7 @@ Requires Node 22+.
 ```sh
 npm ci
 npm run dev          # http://localhost:5173 with hot reload
-npm test             # 139 unit tests (Vitest)
+npm test             # 272 unit tests (Vitest)
 npm run typecheck
 npm run build        # production build in dist/
 npm run preview      # serve the build

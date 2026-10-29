@@ -15,6 +15,7 @@ import { ChoiceView } from '../quest/Scenes';
 import { GambitView, MatchView, RepairView, RunewordView, SpotView, WheelView, WorkshopView } from '../games/GameViews';
 import { CodexDialog, questConcepts } from '../games/Hud';
 import { recordStep, type WorldEvent } from './QuestScreen';
+import { withEvent, type Progress } from '../../engine/progress-store';
 
 interface Props {
   questId: string;
@@ -50,20 +51,26 @@ export function PracticeScreen({ questId, sceneId, onPose, onWorld, reducedMotio
 
   if (!engine.isChallenge(raw)) return null;
 
+  // A finished practice round is a concept revisit in the learning history (not an attempt).
+  const practised = (p: Progress, done: Run) => {
+    const r = engine.resultFor(done, raw.id);
+    return withEvent(p, { k: 'practice', q: full.id, s: raw.id, ok: engine.isFirstTry(raw, r) && !r.revealed });
+  };
+
   const onCheck = (answer: Answer) => {
     const { run: next, outcome: out } = engine.submitAnswer(quest, run, answer);
     if (!out.valid) { setInvalid(out.message ?? 'Please answer first.'); announce(out.message ?? ''); return; }
     setInvalid(null);
     setRun(next);
     setOutcome(out);
-    if (engine.stepFinished(out)) update((p) => recordStep(p, full, next, raw));
+    if (engine.stepFinished(out)) update((p) => practised(recordStep(p, full, next, raw), next));
     onWorld?.(out.correct ? 'right' : 'wrong');
   };
   const onReveal = () => {
     const next = engine.revealAnswer(quest, run);
     setRun(next);
     setOutcome(null);
-    update((p) => recordStep(p, full, next, raw));
+    update((p) => practised(recordStep(p, full, next, raw), next));
   };
   const onSpin = () => {
     const today = dayNumber();

@@ -3,7 +3,8 @@ import { useGame } from '../../app/game';
 import { navigate } from '../../app/router';
 import { announce, focusElement } from '../../app/a11y';
 import * as engine from '../../engine/game-engine';
-import { questRecord, totalXp, withCompletion, withConcepts, withLessonRead, withRun, type Progress } from '../../engine/progress-store';
+import { questRecord, totalXp, withCompletion, withConcepts, withEvent, withLessonRead, withRun, type Progress } from '../../engine/progress-store';
+import { runScore } from '../../engine/learning-analytics';
 import { destinationForQuest, moduleForQuest, newlyUnlocked } from '../../engine/progression';
 import type { Answer, Outcome, Quest, Run, Scene } from '../../engine/types';
 import type { Pose } from '../../world/characters';
@@ -30,6 +31,19 @@ export function recordStep(progress: Progress, quest: import('../../engine/types
     firstTry: engine.isFirstTry(scene, r), revealed: r.revealed, wrongAttempts: Math.max(0, r.attempts - engine.parFor(scene)), context, day: dayNumber(),
   });
   return withConcepts(progress, concepts);
+}
+
+/**
+ * Learning-history events for one checked answer: the answer, a hint if the
+ * game showed one, and a reveal if the player ran out of picks. Kept on this
+ * device only, and skipped when the player has paused the history.
+ */
+export function recordAnswer(progress: Progress, questId: string, sceneId: string, run: Run, outcome: Outcome): Progress {
+  const base = { q: questId, s: sceneId, r: run.seed ?? 0 };
+  let p = withEvent(progress, { ...base, k: 'answer', ok: Boolean(outcome.correct) });
+  if (outcome.hint) p = withEvent(p, { ...base, k: 'hint' });
+  if (outcome.locked) p = withEvent(p, { ...base, k: 'reveal' });
+  return p;
 }
 
 /** In game quests a step is a round (or a stage of the boss), not a course phase. */
@@ -102,6 +116,15 @@ export function QuestScreen({ questId, onPose, onWorld, reducedMotion = false }:
     if (target === 'feedback') focusElement(stageRef.current?.querySelector('[data-feedback]'));
   });
 
+  // Learning history: note when a challenge step is opened with no answer yet
+  // in this run (once per run and step, so reloading doesn't repeat it).
+  useEffect(() => {
+    if (!engine.isChallenge(rawScene) || result.attempts > 0 || result.solved) return;
+    const r = run.seed ?? 0;
+    if (progressRef.current.events.some((e) => e.k === 'start' && e.q === quest.id && e.s === rawScene.id && (e.r ?? 0) === r)) return;
+    update((p) => withEvent(p, { k: 'start', q: quest.id, s: rawScene.id, r }));
+  }, [rawScene.id, run.seed]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const commit = (next: Run, focus: 'scene' | 'feedback' | null) => {
     setRun(next);
     focusTarget.current = focus;
@@ -118,6 +141,7 @@ export function QuestScreen({ questId, onPose, onWorld, reducedMotion = false }:
     const tried = scene.type === 'choice' && !outcome.correct && typeof answer === 'string' && !v.tried.includes(answer) ? [...v.tried, answer] : v.tried;
     setView({ sceneId: scene.id, outcome, tried, invalid: null });
     commit(next, 'feedback');
+    update((p) => recordAnswer(p, quest.id, rawScene.id, next, outcome));
     // A right answer, or running out of picks (recorded as revealed), finishes the step.
     if (engine.stepFinished(outcome)) update((p) => recordStep(p, quest, next, rawScene));
     onWorld?.(outcome.correct ? 'right' : 'wrong');
@@ -127,7 +151,7 @@ export function QuestScreen({ questId, onPose, onWorld, reducedMotion = false }:
     setView({ ...v, outcome: null, invalid: null });
     const next = engine.revealAnswer(quest, run);
     commit(next, 'feedback');
-    update((p) => recordStep(p, quest, next, rawScene));
+    update((p) => withEvent(recordStep(p, quest, next, rawScene), { k: 'reveal', q: quest.id, s: rawScene.id, r: next.seed ?? 0 }));
   };
 
   const onSpin = () => {
@@ -152,7 +176,7 @@ export function QuestScreen({ questId, onPose, onWorld, reducedMotion = false }:
 
   const onNext = () => {
     // Remember lessons the player has read (no XP; it only shortens replays).
-    if (scene.type === 'lesson') update((p) => withLessonRead(p, engine.lessonKey(quest, scene)));
+    if (scene.type === 'lesson') update((p) => withEvent(withLessonRead(p, engine.lessonKey(quest, scene)), { k: 'lesson', q: quest.id, s: scene.id, r: run.seed ?? 0 }));
     const after = engine.advance(quest, run);
     if (after === run) return;
     if (!after.completed) {
@@ -170,7 +194,9 @@ export function QuestScreen({ questId, onPose, onWorld, reducedMotion = false }:
     const medal = engine.computeMedal(quest, after);
     // The badge is earned on mastery, not on simply reaching the end.
     const silver = engine.computeSilver(quest, after);
-    const nextProgress = withCompletion(before, after, xp, stars, mastered ? quest.badge?.id : undefined, { mastered, mastery, medal, silver });
+    // The finished run's mastery score also goes into the learning history.
+    const nextProgress = withEvent(withCompletion(before, after, xp, stars, mastered ? quest.badge?.id : undefined, { mastered, mastery, medal, silver }),
+      { k: 'finish', q: quest.id, r: after.seed ?? 0, score: runScore(quest, after) });
     // XP shows live during a run, so measure the gain against the total as it
     // stood before this run: other quests plus this quest's previous best.
     const baseline = totalXp(before) - Math.max(record.bestXp, record.runXp) + record.bestXp;
