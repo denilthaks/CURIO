@@ -10,6 +10,7 @@ import type { WorldRenderer } from '../../world/WorldRenderer';
 import type { StageStatus } from '../WorldStage';
 import { StatusChip } from './MapScreen';
 import { Stars } from '../Stars';
+import { FieldNotes, Overview, PrivacyPanel, ProfileHeader } from '../profile/Profile';
 
 interface Props {
   webgl: boolean;
@@ -36,10 +37,13 @@ export function ProgressScreen({ webgl, autoQuality, stageStatus, renderer }: Pr
   );
 
   return (
-    <section className="progress-screen panel-center" aria-labelledby="progress-title">
-      <div className="card-solid">
-        <p className="eyebrow">Your Atlas</p>
-        <h1 id="progress-title">Progress &amp; settings</h1>
+    <section className="progress-screen pf-page" aria-labelledby="progress-title">
+      <ProfileHeader />
+      <Overview />
+      <FieldNotes />
+      <PrivacyPanel />
+      <div className="card-solid pf-atlas">
+        <h2>Progress &amp; settings</h2>
 
         <dl className="stats">
           <div className="stat"><dt>Total XP</dt><dd>{xp} <span className="of">/ {max}</span></dd></div>

@@ -53,7 +53,7 @@ describe('players who finished the previous Market Ledger (v3 saves)', () => {
   const p = load(v3({ 'missing-signal': record({ run: null, lastRun: null }), 'market-ledger': record() }));
   test('keep their completion, XP, stars, badge, lessons and the Great Hall', () => {
     const r = store.questRecord(p, 'market-ledger');
-    expect(p.version).toBe(4);
+    expect(p.version).toBe(store.SCHEMA_VERSION);
     expect(r).toMatchObject({ completed: true, mastered: true, bestXp: 85, bestStars: 2, bestMedal: 'none', bestMastery: null, bestSilver: 0 });
     expect(p.achievements).toEqual(['ledger-keeper']);
     expect(p.lessons).toEqual(['market-ledger/lesson-ranges']);

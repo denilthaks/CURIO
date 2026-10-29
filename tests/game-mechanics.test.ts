@@ -453,7 +453,7 @@ describe('save schema v4', () => {
   test('a v3 save keeps completions and unlocks: completed quests count as mastered', () => {
     const v3 = { version: 3, player: { name: 'Asha', emblem: 'owl' }, quests: { 'missing-signal': { run: null, runXp: 0, lastRun: null, lastXp: 60, bestXp: 60, bestStars: 3, completed: true, completions: 1 }, 'market-ledger': { run: null, runXp: 0, lastRun: null, lastXp: 50, bestXp: 50, bestStars: 2, completed: true, completions: 1 } }, achievements: [], lessons: [], settings: { motion: 'system', textSize: 'normal', graphics: 'auto' } };
     const loaded = store.createProgressStore(memoryStorage({ [store.STORAGE_KEY]: JSON.stringify(v3) })).load();
-    expect(loaded.version).toBe(4);
+    expect(loaded.version).toBe(store.SCHEMA_VERSION);
     expect(loaded.concepts).toEqual({});
     expect(store.questRecord(loaded, 'market-ledger')).toMatchObject({ completed: true, mastered: true, bestMedal: 'none', bestMastery: null });
     expect(progression.isDestinationUnlocked(world.destinations.find((d) => d.id === 'great-hall')!, loaded)).toBe(true);

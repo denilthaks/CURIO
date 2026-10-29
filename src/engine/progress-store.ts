@@ -7,7 +7,7 @@ import { computeStars, restoreRun, MEDAL_RANK, type Medal } from './game-engine'
 import { sanitizeConcepts, type ConceptRecord } from './games/mastery';
 
 export const STORAGE_KEY = 'curiotrail.progress';
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 export const MEDALS: Medal[] = ['none', 'bronze', 'silver', 'gold'];
 export const EMBLEMS = ['fox', 'owl', 'deer', 'badger'] as const;
 export const MAX_NAME_LENGTH = 24;
@@ -79,7 +79,40 @@ export interface Progress {
   settings: Settings;
   /** Per-concept mastery (encyclopedia ids), kept on this device only. */
   concepts: Record<string, ConceptRecord>;
+  /** Learning history behind the profile's field notes (this device only). */
+  events: LearningEvent[];
+  /** The player can pause the learning history; nothing new is recorded while false. */
+  recordEvents: boolean;
 }
+
+/**
+ * One learning event, recorded on this device only (never sent anywhere).
+ * Kept small: the log is capped at MAX_EVENTS, oldest first out.
+ *   start     a challenge step was opened with no answer yet in this run
+ *   answer    an answer was checked (ok = correct)
+ *   hint      the game showed a hint after a wrong answer
+ *   reveal    the answer was shown (asked for, or out of picks): no credit
+ *   finish    a quest run was finished (score = mastery score 0-100)
+ *   practice  a practice round was finished (ok = right first time, not revealed)
+ *   lesson    a lesson (theory card) was read
+ */
+export const EVENT_KINDS = ['start', 'answer', 'hint', 'reveal', 'finish', 'practice', 'lesson'] as const;
+export type EventKind = (typeof EVENT_KINDS)[number];
+export interface LearningEvent {
+  /** Time (ms since epoch). */
+  t: number;
+  k: EventKind;
+  /** Quest id. */
+  q: string;
+  /** Step id (absent for "finish"). */
+  s?: string;
+  /** The run's seed, so a replay's answers are counted as a new run. */
+  r?: number;
+  ok?: boolean;
+  /** "finish" only: mastery score 0-100. */
+  score?: number;
+}
+export const MAX_EVENTS = 2000;
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -92,7 +125,7 @@ export function defaultSettings(): Settings {
 }
 
 export function defaultProgress(): Progress {
-  return { version: SCHEMA_VERSION, player: null, quests: {}, achievements: [], lessons: [], settings: defaultSettings(), concepts: {} };
+  return { version: SCHEMA_VERSION, player: null, quests: {}, achievements: [], lessons: [], settings: defaultSettings(), concepts: {}, events: [], recordEvents: true };
 }
 
 export function emptyRecord(): QuestRecord {
@@ -213,7 +246,43 @@ export function migrate(raw: unknown): Record<string, unknown> | null {
     data.concepts = {};
     data.version = 4;
   }
+  if (data.version === 4) {
+    // v5 added the on-device learning history behind the profile. Older play
+    // has no history; it starts from the first step played after updating.
+    data.events = [];
+    data.recordEvents = true;
+    data.version = 5;
+  }
   return data;
+}
+
+const ID = /^[a-z0-9-]{1,64}$/;
+const EARLIEST = Date.UTC(2024, 0, 1);
+
+export function sanitizeEvents(raw: unknown, now = Date.now()): LearningEvent[] {
+  if (!Array.isArray(raw)) return [];
+  const out: LearningEvent[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const e = item as Record<string, unknown>;
+    if (!(EVENT_KINDS as readonly string[]).includes(e.k as string)) continue;
+    if (typeof e.t !== 'number' || !Number.isFinite(e.t) || e.t < EARLIEST || e.t > now + 86_400_000) continue;
+    if (typeof e.q !== 'string' || !ID.test(e.q)) continue;
+    const ev: LearningEvent = { t: Math.round(e.t), k: e.k as EventKind, q: e.q };
+    if (e.k !== 'finish') {
+      if (typeof e.s !== 'string' || !ID.test(e.s)) continue;
+      ev.s = e.s;
+    }
+    if (Number.isInteger(e.r)) ev.r = e.r as number;
+    if (typeof e.ok === 'boolean') ev.ok = e.ok;
+    if (e.k === 'finish') {
+      if (!Number.isInteger(e.score) || (e.score as number) < 0 || (e.score as number) > 100) continue;
+      ev.score = e.score as number;
+    }
+    out.push(ev);
+  }
+  out.sort((a, b) => a.t - b.t);
+  return out.slice(-MAX_EVENTS);
 }
 
 export function sanitizeProgress(raw: unknown): Progress {
@@ -241,6 +310,8 @@ export function sanitizeProgress(raw: unknown): Progress {
     lessons,
     settings: sanitizeSettings(data.settings),
     concepts: sanitizeConcepts(data.concepts),
+    events: sanitizeEvents(data.events),
+    recordEvents: data.recordEvents !== false,
   };
 }
 
@@ -361,6 +432,25 @@ export function withConcepts(progress: Progress, concepts: Record<string, Concep
 export function withLessonRead(progress: Progress, key: string): Progress {
   if (progress.lessons.includes(key) || !/^[a-z0-9-]{1,64}\/[a-z0-9-]{1,64}$/.test(key)) return progress;
   return { ...progress, lessons: [...progress.lessons, key] };
+}
+
+/** Add one learning event, unless the player has paused the history. */
+export function withEvent(progress: Progress, event: Omit<LearningEvent, 't'> & { t?: number }): Progress {
+  if (!progress.recordEvents) return progress;
+  const clean = sanitizeEvents([{ t: Date.now(), ...event }]);
+  if (!clean.length) return progress;
+  const events = [...progress.events, clean[0]];
+  return { ...progress, events: events.length > MAX_EVENTS ? events.slice(-MAX_EVENTS) : events };
+}
+
+/** Pause or resume the learning history. Pausing keeps what is already recorded. */
+export function withRecordEvents(progress: Progress, recordEvents: boolean): Progress {
+  return progress.recordEvents === recordEvents ? progress : { ...progress, recordEvents };
+}
+
+/** Delete the learning history only; quests, XP and settings stay. */
+export function withEventsCleared(progress: Progress): Progress {
+  return progress.events.length ? { ...progress, events: [] } : progress;
 }
 
 export function totalXp(progress: Progress): number {
