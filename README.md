@@ -2,7 +2,7 @@
 
 **Find your way through the digital world.**
 
-CurioTrail is a free, open-source, story-driven 3D learning game. You become a *Pathfinder* on a Viking island, and each destination on the island teaches a practical digital skill through short quests: checking AI-generated information, querying data with SQL, repairing Python, building spreadsheet formulas and reading business KPIs.
+CurioTrail is a publicly viewable, proprietary, story-driven 3D learning game. You become a *Pathfinder* on a Viking island, and each destination on the island teaches a practical digital skill through short quests: checking AI-generated information, querying data with SQL, repairing Python, building spreadsheet formulas and reading business KPIs.
 
 > **Status:** playable prototype. Six quests are complete from start to finish, including a hands-on data-modelling lab, each with theory cards. They're organised into an eight-module learning path; modules with no content yet are clearly marked *planned*. No unfinished feature is presented as working.
 > "CurioTrail" is a working name. Trademarks and domains have not been checked.
@@ -123,7 +123,9 @@ See [docs/TEST-REPORT.md](docs/TEST-REPORT.md#incomplete-or-limited) for the ful
 
 ## Licence
 
-The code and quest content are MIT (see [LICENSE](LICENSE)). The island model files are CC-BY-4.0, as above.
+CurioTrail's original source code, learning content, game design, original assets, branding and documentation are proprietary unless a separate licence applies. All rights are reserved except for permissions expressly granted by the applicable licence or law. Public access to this repository does not, by itself, grant permission to reuse, modify, redistribute or commercially exploit those materials. See [LICENSE](LICENSE) for the full terms.
+
+Third-party dependencies and assets remain subject to their own licences. In particular, the Viking island model files remain licensed under CC BY 4.0, as described above. The proprietary notice is not intended to revoke valid rights previously granted under an earlier licence.
 
 ## Feedback
 
