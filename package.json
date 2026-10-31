@@ -4,7 +4,7 @@
   "private": true,
   "description": "A story-driven, gamified digital-literacy prototype.",
   "type": "module",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "scripts": {
     "test": "vitest run",
     "dev": "vite",
