@@ -80,11 +80,11 @@ Requires Node 22+.
 ```sh
 npm ci
 npm run dev          # http://localhost:5173 with hot reload
-npm test             # 272 unit tests (Vitest)
+npm test             # run the unit-test suite (Vitest)
 npm run typecheck
 npm run build        # production build in dist/
 npm run preview      # serve the build
-npm run e2e          # 34 real-browser checks (needs Playwright + Chromium; see below)
+npm run e2e          # run browser checks (needs Playwright + Chromium; see below)
 ```
 
 `npm run e2e` serves `dist/` under `/CURIO/` (like GitHub Pages) and drives Chromium through every quest, the failure modes and the mobile layout. It writes screenshots to `docs/screenshots/` and results to `docs/test-results/e2e.json`. Install Chromium once with `npx playwright install chromium`.
