@@ -1,5 +1,7 @@
 # Test report
 
+> **Current status:** the counts and results in this document are recorded test snapshots, not live CI status. Check [GitHub Actions](https://github.com/denilthaks/CURIO/actions) for results on the current commit.
+
 ## Learning platform, Phase 1 (latest run)
 
 | Suite | Command | Result |
